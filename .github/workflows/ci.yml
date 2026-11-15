@@ -225,6 +225,9 @@ jobs:
       # 部署凭据是**硬性前提**：缺一项就让整个 job 红，不再静默跳过。
       # DATABASE_URL 也算凭据——没有它，deploy.mjs 会发一个连不上库的
       # Worker 上去，比不部署更糟。
+      # ⚠️ DATABASE_URL 必须是**生产库**连接串。别把本机 .dev.vars 里的
+      # `127.0.0.1:5432` 填进来：deploy.mjs 会把它 `secret put` 到线上，
+      # 直接把正在服务的 Worker 打断（踩过一次，1 分钟内部署即 500）。
       - name: 检查部署凭据（缺失即失败）
         run: |
           set -euo pipefail
