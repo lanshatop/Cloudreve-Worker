@@ -1,0 +1,55 @@
+# GitHub Actions：push 到 main 自动部署到 Cloudflare Workers。
+#
+# 前置条件（一次性）：
+#   1. 仓库 Settings → Secrets and variables → Actions，添加两个 Secret：
+#      - CLOUDFLARE_API_TOKEN —— Cloudflare 面板 → My Profile → API Tokens
+#        → Create Token，选「Edit Cloudflare Workers」模板；若想让脚本自动
+#        创建 KV / R2 资源（scripts/deploy.mjs 会这么做），需要在模板基础上
+#        追加 Account: Cloudflare KV Storage / R2: Edit 权限。
+#      - CLOUDFLARE_ACCOUNT_ID —— 面板 Workers & Pages 概览页右侧可复制。
+#      （可选）DATABASE_URL —— 填了它，每次部署会自动把连接串写入 Worker
+#        运行时 Secret，面板里就不用手动加。
+#   2. push 到 main 即触发；也可在 Actions 页手动 Run workflow（支持选环境）。
+#
+# 构建流程与 scripts/deploy.mjs 的说明一致：装配 KV → 建 R2 → 准备前端 →
+# wrangler deploy。缓存清理（kv-purge-refill）在 deploy.mjs 内部完成。
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck & unit smoke tests
+        run: |
+          npx tsc --noEmit
+          npm run test:netdisk
+          npm run test:webdav
+
+      - name: Build frontend & deploy
+        run: npm run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # 部署成功后自动 wrangler secret put 写入运行时（可选）
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SITE_URL: ${{ secrets.SITE_URL }}

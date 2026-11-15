@@ -25,6 +25,7 @@ import {
   type UserWithGroup,
 } from '../db/types';
 import { EntityType, FileType, PolicyType } from '../lib/boolset';
+import { isRelayOnlyPolicyType } from '../storage';
 import {
   AppError,
   CodeCredentialInvalid,
@@ -186,7 +187,7 @@ export class UploadService {
     // 标记加密，下载端会把明文当密文解 → 乱码。所以 relay 策略一律不加密。
     const policyRelay =
       policy.settings?.relay === true ||
-      policy.type === PolicyType.Upyun ||
+      isRelayOnlyPolicyType(policy.type) ||
       (policy.type === PolicyType.S3 && !policy.access_key);
     let encryptMeta: EncryptMetadata | undefined;
     const wantsEncryption =
@@ -723,7 +724,7 @@ export class UploadService {
       : null;
     const editPolicyRelay =
       policy.settings?.relay === true ||
-      policy.type === PolicyType.Upyun ||
+      isRelayOnlyPolicyType(policy.type) ||
       (policy.type === PolicyType.S3 && !policy.access_key);
     const shouldEncrypt =
       !!prevEntity?.enc_meta || (policy.settings?.encryption === true && !editPolicyRelay);

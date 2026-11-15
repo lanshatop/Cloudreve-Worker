@@ -264,12 +264,48 @@ export interface PolicySetting {
   encryption?: boolean;
   /** 边缘版专属：中转下载与缩略图缓存到 Cloudflare 边缘 CDN（Cache API） */
   edge_cache?: boolean;
+  /** 边缘版专属（WebDAV）：附加到每个请求的自定义头，如应用专用 Cookie、UA */
+  dav_headers?: Record<string, string>;
+  /** 边缘版专属（WebDAV）：新建策略时跳过连接测试（对端暂不可达时用） */
+  dav_skip_probe?: boolean;
   /** 边缘版专属（load_balance 虚拟策略）：参与负载均衡的 slave 策略 id 列表 */
   slave_policy_ids?: number[];
   /** 边缘版专属（load_balance 虚拟策略）：选路算法，默认 random */
   load_balance_mode?: 'random' | 'round_robin';
   /** 边缘版专属（load_balance 虚拟策略）：子策略权重（键=策略 id 字符串，0 不参与），对齐官方 Pro 权重语义 */
   slave_policy_weights?: Record<string, number>;
+
+  // ---- 国内网盘原生驱动（全部为「恒中转」类型）----
+
+  /** 天翼云盘：浏览器 Cookie（优先于账号密码） */
+  c189_cookie?: string;
+  /** 天翼云盘：根目录 ID，默认 -11（个人云根） */
+  c189_root_folder_id?: string;
+
+  /** 移动云盘：authorization（base64，不含 Basic 前缀） */
+  y139_authorization?: string;
+  /** 移动云盘：userDomainId，用于 PC 接口自动刷新 token */
+  y139_user_domain_id?: string;
+  /** 移动云盘：根目录 fileId，默认 "/" */
+  y139_root_folder_id?: string;
+
+  /** 联通云盘：access_token */
+  wp_access_token?: string;
+  /** 联通云盘：refresh_token（token 过期时自动续期） */
+  wp_refresh_token?: string;
+  /** 联通云盘：根目录 ID，默认 0（个人云根） */
+  wp_root_folder_id?: string;
+
+  /** 阿里云盘：refresh_token（长期有效，会轮换） */
+  ali_refresh_token?: string;
+  /** 阿里云盘：盘 ID（留空自动取 resource drive） */
+  ali_drive_id?: string;
+  /** 阿里云盘：根目录 file_id，默认 root */
+  ali_root_folder_id?: string;
+  /** 阿里云盘：删除走永久删除而不是回收站 */
+  ali_remove_permanent?: boolean;
+  /** 四家网盘：新建策略时跳过连接测试 */
+  netdisk_skip_probe?: boolean;
 }
 
 export interface ExplorerView {

@@ -22,6 +22,8 @@ import SelectProvider from "./SelectProvider";
 import StoragePolicyCard from "./StoragePolicyCard";
 import CosWizard from "./Wizards/COS/CosWizard";
 import LoadBalanceWizard from "./Wizards/LoadBalance/LoadBalanceWizard";
+import NetdiskWizard from "./Wizards/Netdisk/NetdiskWizard";
+import WebDavWizard from "./Wizards/WebDav/WebDavWizard";
 import LocalWizard from "./Wizards/Local/LocalWizard";
 import ObsWizard from "./Wizards/OBS/ObsWizard";
 import OneDriveWizard from "./Wizards/OneDrive/OneDriveWizard";
@@ -330,6 +332,61 @@ export const PolicyPropsMap: Record<PolicyType, PolicyProps> = {
       />
     ),
     bucketType: "policy.tokenStatus",
+  },
+  // ---- 边缘版专属：国内个人网盘（四家各自原生驱动，无网桥） ----
+  // 卡片只是个入口，真正的凭据表单在 Wizards/Netdisk 里按 type 渲染。
+  // 图标统一用「远程节点」，避免引用不存在的品牌图标导致卡片破图。
+  [PolicyType.cloud189]: {
+    name: "天翼云盘",
+    img: "/static/img/remote.png",
+    wizardSize: "md",
+    wizard: (props) => <NetdiskWizard {...props} preset={PolicyType.cloud189} />,
+    bucketName: "挂载根路径",
+    endpointName: "天翼云盘地址（固定）",
+    akName: "天翼账号",
+    skName: "密码",
+  },
+  [PolicyType.yun139]: {
+    name: "移动云盘",
+    img: "/static/img/remote.png",
+    wizardSize: "md",
+    wizard: (props) => <NetdiskWizard {...props} preset={PolicyType.yun139} />,
+    bucketName: "挂载根路径",
+    endpointName: "移动云盘地址（固定）",
+    akName: "authorization",
+    skName: "—",
+  },
+  [PolicyType.wopan]: {
+    name: "联通云盘",
+    img: "/static/img/remote.png",
+    wizardSize: "md",
+    wizard: (props) => <NetdiskWizard {...props} preset={PolicyType.wopan} />,
+    bucketName: "挂载根路径",
+    endpointName: "联通云盘地址（固定）",
+    akName: "access_token",
+    skName: "refresh_token",
+  },
+  [PolicyType.aliyundrive]: {
+    name: "阿里云盘",
+    img: "/static/img/remote.png",
+    wizardSize: "md",
+    wizard: (props) => <NetdiskWizard {...props} preset={PolicyType.aliyundrive} />,
+    bucketName: "挂载根路径",
+    endpointName: "开放平台地址（固定）",
+    akName: "client_id（可选）",
+    skName: "client_secret（可选）",
+  },
+  // 边缘版专属：原生 WebDAV 客户端（RFC 4918），不需要中间网桥服务。
+  // 图标复用「远程节点」，避免引用不存在的资源导致卡片破图。
+  [PolicyType.webdav]: {
+    name: "WebDAV",
+    img: "/static/img/remote.png",
+    wizardSize: "md",
+    wizard: (props) => <WebDavWizard {...props} />,
+    bucketName: "挂载子目录",
+    endpointName: "WebDAV 服务地址",
+    akName: "用户名",
+    skName: "密码 / 应用专用密码",
   },
 };
 

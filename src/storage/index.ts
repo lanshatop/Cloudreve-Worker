@@ -23,6 +23,13 @@
  *                  系统存储」只能由节点提供 —— 策略必须绑 `node_id`，
  *                  对应「从节点的本地磁盘」。上游里 `local` 指的是主站所在
  *                  机器的磁盘，云函数里没有这个概念。
+ *   - `cloud189` / `yun139` / `wopan` / `aliyundrive`
+ *                → 四家国内个人网盘各自的**原生驱动**（src/storage/netdisk/）。
+ *                  天翼走 Web 私有接口 + RSA/签名，移动走 mcloud-sign，
+ *                  联通走沃云 dispatcher 协议，阿里云盘走官方开放平台 OAuth2。
+ *                  全部恒中转（分片在驱动内部完成）。
+ *   - `webdav`    → WebDavDriver（**原生** RFC 4918 客户端：PUT / PROPFIND /
+ *                  MKCOL / GET / HEAD / DELETE，流式中转，无需网桥。见 webdav.ts）
  *
  * 拆包说明：`nodeRelay.ts` 只依赖 lib/db，不 import 任何路由。
  */
@@ -35,6 +42,8 @@ import { OneDriveDriver } from './onedrive';
 import { S3CompatibleDriver } from './s3';
 import { UpyunDriver } from './upyun';
 import { NodeRelayDriver } from './nodeRelay';
+import { NETDISK_POLICY_TYPES, createNetdiskDriver } from './netdisk';
+import { WebDavDriver } from './webdav';
 import { requireNode } from '../db/nodes';
 import { loadSettings } from '../settings/provider';
 import { BACKEND_VERSION } from '../lib/version';
@@ -52,6 +61,11 @@ export const SUPPORTED_POLICY_TYPES = [
   PolicyType.Upyun,
   PolicyType.Local,
   PolicyType.Remote,
+  PolicyType.Cloud189,
+  PolicyType.Yun139,
+  PolicyType.WoPan,
+  PolicyType.Aliyundrive,
+  PolicyType.WebDav,
 ] as const;
 
 /** 必须绑定从节点才能工作的类型（Worker 侧没有本地磁盘）。 */
@@ -59,6 +73,27 @@ export const NODE_BOUND_POLICY_TYPES: readonly string[] = [PolicyType.Local, Pol
 
 export function isNodeBoundPolicyType(type: string): boolean {
   return NODE_BOUND_POLICY_TYPES.includes(type);
+}
+
+/**
+ * **驱动没有直传能力、恒走服务端中转**的策略类型。
+ *
+ * 前端上传器（`core/index.ts`）只看 `StoragePolicyInfo.relay` 决定用
+ * 「本地中转上传器」还是「S3 直传上传器」；后者会去读
+ * `session.upload_urls[0]`，而这些驱动返回的凭证里根本没有这个字段，
+ * 于是直接抛异常。客户端加密同样必须对这些类型关闭（relay 上传的是明文，
+ * 若打上加密标记，下载端会把明文当密文解成乱码）。
+ *
+ * 集中在这里，避免每加一个中转驱动就要去 services/ 下改三四处白名单。
+ */
+export const RELAY_ONLY_POLICY_TYPES: readonly string[] = [
+  PolicyType.Upyun,
+  ...NETDISK_POLICY_TYPES,
+  PolicyType.WebDav,
+];
+
+export function isRelayOnlyPolicyType(type: string): boolean {
+  return RELAY_ONLY_POLICY_TYPES.includes(type);
 }
 
 /**
@@ -105,6 +140,13 @@ export function getStorageDriver(env: Env, policy: StoragePolicyRow): StorageDri
       return new OneDriveDriver(env, policy);
     case PolicyType.Upyun:
       return new UpyunDriver(policy);
+    case PolicyType.Cloud189:
+    case PolicyType.Yun139:
+    case PolicyType.WoPan:
+    case PolicyType.Aliyundrive:
+      return createNetdiskDriver(env, policy);
+    case PolicyType.WebDav:
+      return new WebDavDriver(policy);
     case PolicyType.Local:
     case PolicyType.Remote:
       if (!policy.node_id) {
@@ -142,3 +184,5 @@ export { OneDriveDriver } from './onedrive';
 export { S3CompatibleDriver } from './s3';
 export { UpyunDriver } from './upyun';
 export { NodeRelayDriver } from './nodeRelay';
+export { WebDavDriver } from './webdav';
+export { NETDISK_PRESETS, invalidateNetdiskCaches } from './netdisk';

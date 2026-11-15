@@ -10,6 +10,9 @@ dist-check/
 .env
 .env.*
 
+# 本地预览用的 PGlite 数据库文件（可随时删掉重置）
+.local-db/
+
 # 官方前端（fetch-frontend.mjs 的下载/构建中间物与产物，不入库）
 frontend/
 _frontend.tar.gz
@@ -45,3 +48,6 @@ node_*.txt
 edgeone-publish/
 dist-server/
 esa-publish/
+
+# 本机本地预览配置（含本机端口/占位 KV，不入库）
+wrangler.local.toml

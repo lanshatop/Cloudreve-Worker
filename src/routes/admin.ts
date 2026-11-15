@@ -62,6 +62,8 @@ import { AuditRepo } from '../db/audit';
 import { SUPPORTED_POLICY_TYPES, getStorageDriver, isNodeBoundPolicyType, isPolicyTypeSupported, isSelectablePolicyType } from '../storage';
 import { loadNodeById } from '../db/nodes';
 import { validateLoadBalanceSettings } from '../storage/loadBalance';
+import { probeWebDav } from '../storage/webdav';
+import { NETDISK_POLICY_TYPES, probeNetdisk } from '../storage/netdisk';
 import { BACKEND_VERSION } from './site';
 import { adminContentRoutes } from './admin-content';
 import { numericId, paginationArgs, paginationOf, unwrapBody } from './shared';
@@ -721,19 +723,15 @@ adminRoutes.post('/user/:id/reset-link', async (c) => {
  * `PolicyPropsMap[policy.type].img` 渲染卡片 —— 库里出现枚举外的 type 会让
  * 整页崩（'r2' 就这么炸过一次，见 provision.ts 的数据迁移）。响应层统一
  * 归一兜底：未知 type 按边缘版唯一的 S3 兼容实现呈现。
+ *
+ * 直接从驱动工厂的支持列表派生（再加上没有驱动的 load_balance 虚拟策略），
+ * 这样以后新增类型不会漏登记 —— 漏了的话响应层会把它归一化成 s3，
+ * 管理后台看不到新增的策略。五个网盘网桥类型也同步写进了前端补丁的
+ * PolicyType 枚举与 PolicyPropsMap。
  */
-const KNOWN_POLICY_TYPES: ReadonlySet<string> = new Set([
-  'local',
-  'remote',
-  'oss',
-  'qiniu',
-  'onedrive',
-  'cos',
-  'upyun',
-  's3',
-  'ks3',
-  'obs',
-  'load_balance',
+const KNOWN_POLICY_TYPES: ReadonlySet<string> = new Set<string>([
+  ...SUPPORTED_POLICY_TYPES,
+  PolicyType.LoadBalance,
 ]);
 
 function normalizePolicyType(type: string): string {
@@ -910,6 +908,50 @@ adminRoutes.put('/policy', async (c) => {
   if (type === PolicyType.LoadBalance) {
     await validateLoadBalanceSettings(ctx.policies, body.settings as Record<string, unknown> | undefined);
   }
+  // WebDAV 的地址 / 凭据最容易填错，落库前做一次只读 PROPFIND 探测，
+  // 直接把 401/404/405 等翻译成可操作的提示。编辑策略时不探测：前端会
+  // 把凭据回填成掩码，探测必然失败。设 dav_skip_probe 可跳过（对端暂不可达）。
+  if (type === PolicyType.WebDav) {
+    const settings = body.settings as Record<string, unknown> | undefined;
+    if (!settings?.dav_skip_probe) {
+      const result = await probeWebDav({
+        server: body.server as string | undefined,
+        bucket_name: body.bucket_name as string | undefined,
+        access_key: body.access_key as string | undefined,
+        secret_key: body.secret_key as string | undefined,
+        settings,
+      });
+      if (!result.ok) {
+        return fail(
+          c,
+          new AppError(
+            CodeInternalSetting,
+            `WebDAV 连接测试失败（HTTP ${result.status}）：${result.message}`,
+          ),
+        );
+      }
+    }
+  }
+  // 四家网盘的凭据（Cookie / token / authorization）最容易填错或过期，
+  // 落库前做一次只读探测：登录成功且能读根目录才算通过。
+  // 设 settings.netdisk_skip_probe 可跳过（对端暂时风控 / 限流时用）。
+  if (NETDISK_POLICY_TYPES.includes(type)) {
+    const settings = body.settings as Record<string, unknown> | undefined;
+    if (!settings?.netdisk_skip_probe) {
+      try {
+        await probeNetdisk(c.env, {
+          type,
+          name: String(body.name ?? 'policy'),
+          access_key: body.access_key as string | undefined,
+          secret_key: body.secret_key as string | undefined,
+          bucket_name: body.bucket_name as string | undefined,
+          settings,
+        });
+      } catch (e) {
+        return fail(c, new AppError(CodeInternalSetting, describeError(e)));
+      }
+    }
+  }
   try {
     await assertPolicyNode(c, type, body.node_id);
     const policy = await ctx.policies.create(policyCreateArgs(body, type));
@@ -975,6 +1017,9 @@ adminRoutes.put('/policy/:id', async (c) => {
     await kvFor(ctx.env, 'cred').delete(`cred_od_${id}`);
     const { invalidateOdCredentialCache } = await import('../storage/onedrive');
     invalidateOdCredentialCache(id);
+    // 网盘策略可能换了 token / Cookie，清掉 isolate 里的登录态与目录缓存
+    const { invalidateNetdiskCaches } = await import('../storage/netdisk');
+    invalidateNetdiskCaches(id);
 
     // 上游 Update 之后紧接着调 Get，这里照做：返回带 edges 的详情
     const updated = await ctx.policies.byId(id);

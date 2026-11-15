@@ -106,8 +106,15 @@ function runOrDie(cmd, args, label, opts) {
 }
 
 function cleanup() {
-  rmSync(TARBALL_PATH, { force: true });
-  rmSync(SRC_DIR, { recursive: true, force: true });
+  // 清理临时目录失败不能中断构建：后面的 patchIndexHtml()/writeHeaders()
+  // 才决定产物是否可用（占位符、_headers）。某些受限环境会对批量删除
+  // 抛错，此时宁可留下 _frontend-src/，也要把前端补丁跑完。
+  try {
+    rmSync(TARBALL_PATH, { force: true });
+    rmSync(SRC_DIR, { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`  （临时目录清理失败，不影响前端产物：${e?.message || e}）`);
+  }
 }
 
 /**

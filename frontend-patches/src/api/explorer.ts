@@ -108,6 +108,14 @@ export enum PolicyType {
   ks3 = "ks3",
   obs = "obs",
   load_balance = "load_balance",
+  // 边缘版专属：国内个人网盘，各有原生驱动（见 Wizards/Netdisk）。
+  // 全部恒中转：客户端整文件交给 Worker，驱动内部再分片上云。
+  cloud189 = "cloud189",
+  yun139 = "yun139",
+  wopan = "wopan",
+  aliyundrive = "aliyundrive",
+  /** 边缘版专属：原生 WebDAV 客户端存储策略（RFC 4918） */
+  webdav = "webdav",
 }
 
 export interface StoragePolicy {

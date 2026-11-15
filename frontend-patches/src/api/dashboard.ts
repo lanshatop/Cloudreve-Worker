@@ -252,6 +252,36 @@ export interface PolicySetting {
   load_balance_mode?: "random" | "round_robin";
   /** 边缘版专属（负载均衡虚拟策略）：子策略权重（键=策略 id，0 不参与） */
   slave_policy_weights?: Record<string, number>;
+  /** 边缘版专属（天翼云盘）：浏览器 Cookie */
+  c189_cookie?: string;
+  /** 边缘版专属（天翼云盘）：根目录 ID，默认 -11 */
+  c189_root_folder_id?: string;
+  /** 边缘版专属（移动云盘）：authorization（base64） */
+  y139_authorization?: string;
+  /** 边缘版专属（移动云盘）：userDomainId，用于自动刷新 */
+  y139_user_domain_id?: string;
+  /** 边缘版专属（移动云盘）：根目录 fileId，默认 "/" */
+  y139_root_folder_id?: string;
+  /** 边缘版专属（联通云盘）：access_token */
+  wp_access_token?: string;
+  /** 边缘版专属（联通云盘）：refresh_token */
+  wp_refresh_token?: string;
+  /** 边缘版专属（联通云盘）：根目录 ID，默认 0 */
+  wp_root_folder_id?: string;
+  /** 边缘版专属（阿里云盘）：refresh_token */
+  ali_refresh_token?: string;
+  /** 边缘版专属（阿里云盘）：盘 ID，留空自动获取 */
+  ali_drive_id?: string;
+  /** 边缘版专属（阿里云盘）：根目录 file_id，默认 root */
+  ali_root_folder_id?: string;
+  /** 边缘版专属（阿里云盘）：删除时永久删除而非进回收站 */
+  ali_remove_permanent?: boolean;
+  /** 边缘版专属（四家网盘）：新建策略时跳过连接测试 */
+  netdisk_skip_probe?: boolean;
+  /** 边缘版专属（WebDAV）：附加到每个请求的自定义请求头 */
+  dav_headers?: Record<string, string>;
+  /** 边缘版专属（WebDAV）：新建策略时跳过连接测试 */
+  dav_skip_probe?: boolean;
 }
 
 export interface User extends CommonMixin {

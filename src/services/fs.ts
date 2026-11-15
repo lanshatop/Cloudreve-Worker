@@ -14,7 +14,7 @@ import { SearchService } from './search';
 import { FileSystemType, URI, validateName } from './uri';
 import type { ExplorerView, FileRow, MetadataRow, StoragePolicyRow } from '../db/types';
 import { BooleanSet, EntityType, FileType, GroupPermission, PolicyType } from '../lib/boolset';
-import { isPolicyTypeSupported } from '../storage';
+import { isPolicyTypeSupported, isRelayOnlyPolicyType } from '../storage';
 import { generateSavePath, extOf } from './savepath';
 
 /** 转移文件时按扩展名推导一个 content-type（实体表不存 mime，旧对象读回时也只能靠文件名推）。 */
@@ -747,8 +747,8 @@ export class FileSystemService {
       // settings 里没有 relay 标志时上传必炸。
       relay:
         policy.settings?.relay === true ||
-        // 又拍云驱动无直传能力（自有 REST 协议），恒走中转
-        policy.type === PolicyType.Upyun ||
+        // 无直传能力的驱动（又拍云 / 网盘网桥 / WebDAV）恒走中转
+        isRelayOnlyPolicyType(policy.type) ||
         (policy.type === PolicyType.S3 && !policy.access_key),
       chunk_concurrency: policy.settings?.chunk_concurrency,
       encryption: policy.settings?.encryption,

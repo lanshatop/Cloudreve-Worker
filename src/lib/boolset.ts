@@ -128,9 +128,19 @@ export const PolicyType = {
   // 前端 PolicyType 枚举有这个值（StoragePolicyCard 按 type 查
   // PolicyPropsMap 渲染），库里出现它不会让前端崩。
   LoadBalance: 'load_balance',
-  // 注意：不引入自造类型。R2 走 S3 兼容 API，对内对外都用 's3'
-  //（上游前端 PolicyType 枚举没有 'r2'，出现未知 type 会让
-  // StoragePolicyCard 的 PolicyPropsMap[type].img 直接抛 undefined）。
+  // 国内个人网盘：四家各有原生驱动（src/storage/netdisk/*），不经网桥。
+  // 全部是「恒中转」类型：客户端整文件交给 Worker，驱动内部再切片上云。
+  Cloud189: 'cloud189',
+  Yun139: 'yun139',
+  WoPan: 'wopan',
+  Aliyundrive: 'aliyundrive',
+  // WebDAV 是 RFC 4918 开放标准，Workers 的 fetch 支持 PROPFIND / MKCOL，
+  // 所以这是一份原生驱动（src/storage/webdav.ts），不需要额外部署网桥。
+  WebDav: 'webdav',
+  // R2 不走独立类型：它走 S3 兼容 API，对内对外都用 's3'。
+  // 上面五个网盘类型是边缘版自造的，但已同步写进前端补丁的枚举与
+  // PolicyPropsMap，并列入 admin.ts 的 KNOWN_POLICY_TYPES 白名单，
+  // 否则响应层会把它们归一化成 s3、前端卡片也会因查不到 img 而崩。
 } as const;
 
 export type PolicyTypeValue = (typeof PolicyType)[keyof typeof PolicyType];
