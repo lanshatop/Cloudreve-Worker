@@ -586,3 +586,52 @@ HEAD→PROPFIND 回退、Range GET、DELETE 幂等、单层列举、工厂注册
 | 上传报 423 Locked | 对端文件被 WebDAV 客户端锁住，解锁后重试 |
 | 下载慢 / 播放器卡 | 上传下载都经 Worker 代理；大文件建议改 R2 / S3 |
 | 连接测试一直失败但地址没错 | 勾「跳过连接测试」先建策略，再用上传/下载实测；自签证书在 Workers 上无法使用 |
+
+---
+
+## 十三、通过 GitHub 部署（两种方式，选一种即可）
+
+代码托管在 GitHub 后，有两条自动化路线：
+
+### 方式 1：GitHub Actions（本仓库已内置，推荐）
+
+仓库里带 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)：
+**push 到 main 即自动** typecheck → 冒烟测试（netdisk 44 项 / webdav 62 项）→
+构建前端 → `node scripts/deploy.mjs` 部署（自动装配 KV、建 R2、写 Secret）。
+
+一次性配置（在 GitHub 仓库页）：
+
+1. **Settings → Secrets and variables → Actions**，添加：
+
+   | Secret | 哪里拿 | 必填 |
+   |---|---|---|
+   | `CLOUDFLARE_API_TOKEN` | Cloudflare 面板 → My Profile → API Tokens → Create Token → 用 **Edit Cloudflare Workers** 模板，并追加 **Account: KV Storage Edit** 与 **R2 Edit** 权限（脚本要自动建资源） | 是 |
+   | `CLOUDFLARE_ACCOUNT_ID` | Workers & Pages 概览页右侧 | 是 |
+   | `DATABASE_URL` | Neon / Supabase 等的 PG 连接串；填了它部署后会自动写入 Worker 运行时 Secret | 是 |
+   | `SITE_URL` | 部署后的 Worker 地址（首次部署后再回填也行） | 建议 |
+
+2. push 到 main（或在 Actions 页手动 Run workflow）。
+
+### 方式 2：Workers Builds（Cloudflare 面板接仓库，零配置 Secret）
+
+1. Cloudflare 面板 → **Workers & Pages → Create → Workers → Connect to Git**，
+   授权 GitHub 并选中仓库，分支 `main`。
+2. 构建配置（面板会自动识别，确认一下）：
+   - **Build command**：`npm run deploy`
+   - **Deploy command**：留空（`npm run deploy` 内部就是 wrangler deploy）
+   - **Root directory**：`/`
+3. 在构建设置的**变量**里加 `DATABASE_URL`（类型 Secret）。`KV_COUNT` 也要在这里
+   作为**构建变量**加（默认 1；这是构建期变量，不是运行时变量，别加错地方）。
+
+Workers Builds 会自动注入 API token，不需要手动建 token。免费档 3000 分钟/月构建时长，
+本项目单次构建约 7 分钟（大头是前端构建），每日 7 次推送也绰绰有余。
+
+> 两种方式二选一即可，同时开也没冲突（最后部署的生效）。Actions 胜在「部署前先跑测试」，
+> Workers Builds 胜在「不用管理 token」。
+
+### 从 LegspCpd 原仓库改推自己账号
+
+```bash
+git remote set-url origin https://github.com/<你的用户名>/Cloudreve-Worker.git
+git push -u origin main
+```
