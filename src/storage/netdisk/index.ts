@@ -71,8 +71,8 @@ export const NETDISK_PRESETS: Record<string, NetdiskPreset> = {
   },
   aliyundrive: {
     label: '阿里云盘',
-    hint: '官方开放平台接口，填 refresh_token 即可（2 小时自动续期）',
-    requires: ['refresh_token', '（可选）client_id / client_secret'],
+    hint: '官方开放平台接口，填 refresh_token 即可（2 小时自动续期）。个人开发者入驻已暂停，社区 token 需配套 token 接口地址',
+    requires: ['refresh_token', '（可选）token 接口地址（社区 token 必填）', '（可选）client_id / client_secret'],
     requiresR2: false,
   },
 };

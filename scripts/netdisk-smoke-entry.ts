@@ -192,6 +192,9 @@ globalThis.fetch = (async (input: unknown, init: RequestInit = {}) => {
   if (url === 'https://openapi.aliyundrive.com/oauth/access_token') {
     return json({ access_token: 'ali-at', refresh_token: 'ali-rt-2', expires_in: 7200 });
   }
+  if (url === 'https://api.alistgo.com/alist/ali_open/token') {
+    return json({ access_token: 'ali-at', refresh_token: 'ali-rt-2', expires_in: 7200 });
+  }
   if (url.endsWith('/user/getDriveInfo')) return json({ resource_drive_id: 'drive-1' });
   if (url.endsWith('/openFile/list')) {
     return json({ items: [{ file_id: 'ali-file-1', name: 'x.bin', type: 'file', size: 14 }] });
@@ -414,6 +417,47 @@ const uploadReq = {
   );
   eq('阿里: 分片字节数', putBytes.get('aliyun'), CONTENT.length);
   ok('阿里: complete 已调用', calls.some((c) => c.url.endsWith('/openFile/complete')));
+}
+
+// =========================== 阿里云盘：社区 token 端点 ===========================
+{
+  calls.length = 0;
+  putBytes.clear();
+  const driver = new AliyundriveDriver(
+    policy({
+      id: 105,
+      type: PolicyType.Aliyundrive,
+      bucket_name: '',
+      settings: {
+        ali_refresh_token: 'ali-rt-1',
+        ali_token_url: 'https://api.alistgo.com/alist/ali_open/token',
+      },
+    }),
+  );
+
+  await driver.put(uploadReq, streamOf(CONTENT), CONTENT.length);
+
+  ok('阿里(社区): token 走自定义端点', calls.some((c) => c.url.includes('alistgo.com/alist/ali_open/token')));
+  ok('阿里(社区): 未请求官方端点', !calls.some((c) => c.url.includes('oauth/access_token')));
+  const tokenCall = calls.find((c) => c.url.includes('ali_open/token'));
+  const tokenBody = JSON.parse(String(tokenCall?.body)) as Record<string, string>;
+  ok('阿里(社区): 请求体不带 client_id', !('client_id' in tokenBody));
+  eq('阿里(社区): grant_type', tokenBody.grant_type, 'refresh_token');
+  eq('阿里(社区): refresh_token', tokenBody.refresh_token, 'ali-rt-1');
+
+  try {
+    new AliyundriveDriver(
+      policy({
+        id: 106,
+        type: PolicyType.Aliyundrive,
+        bucket_name: '',
+        settings: { ali_refresh_token: 'ali-rt-1', ali_token_url: 'http://127.0.0.1:5432/x' },
+      }),
+    );
+    ok('阿里(社区): SSRF 地址被拒绝', false);
+  } catch (e) {
+    ok('阿里(社区): SSRF 地址被拒绝', /不合法/.test((e as Error).message));
+  }
 }
 
 // =========================== 移动云盘 ===========================

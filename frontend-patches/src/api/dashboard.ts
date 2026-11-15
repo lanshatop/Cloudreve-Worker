@@ -270,6 +270,8 @@ export interface PolicySetting {
   wp_root_folder_id?: string;
   /** 边缘版专属（阿里云盘）：refresh_token */
   ali_refresh_token?: string;
+  /** 边缘版专属（阿里云盘）：token 端点，留空用官方；社区 token 填中转端点 */
+  ali_token_url?: string;
   /** 边缘版专属（阿里云盘）：盘 ID，留空自动获取 */
   ali_drive_id?: string;
   /** 边缘版专属（阿里云盘）：根目录 file_id，默认 root */

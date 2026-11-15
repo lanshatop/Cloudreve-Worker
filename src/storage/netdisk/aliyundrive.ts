@@ -19,6 +19,14 @@
  *   settings.ali_refresh_token → refresh_token（必填）
  *   access_key                 → client_id（可选，默认内置开放平台 AppID）
  *   secret_key                 → client_secret（可选）
+ *   settings.ali_token_url     → token 端点（可选，默认官方
+ *                                 openapi.aliyundrive.com/oauth/access_token）。
+ *                                 官方自 2025-07 暂停个人开发者入驻后，社区
+ *                                 （AList 系）扫码发的 refresh_token 归属社区
+ *                                 公共应用，必须配套社区中转端点刷新（如
+ *                                 https://api.alistgo.com/alist/ali_open/token）；
+ *                                 此时 client_id 留空、请求体里也不带 client_id，
+ *                                 由中转端点注入自己的凭据。
  *   settings.ali_drive_id      → 盘 ID（留空自动取 resource drive）
  *   settings.ali_root_folder_id→ 根目录 file_id，默认 root
  *   bucket_name                → 根路径（如 /cloudreve，不存在会自动建）
@@ -75,6 +83,9 @@ export class AliyundriveDriver implements StorageDriver {
   private readonly refreshToken: string;
   private readonly clientId: string;
   private readonly clientSecret: string;
+  private readonly tokenUrl: string;
+  /** 自定义 token 端点且未显式填 client_id 时，请求体不带 client_id。 */
+  private readonly omitClientId: boolean;
   private readonly rootPath: string;
   private readonly rootFolderId: string;
   private readonly driveIdHint: string;
@@ -93,8 +104,26 @@ export class AliyundriveDriver implements StorageDriver {
         `阿里云盘策略「${policy.name}」缺少 refresh_token：请填 settings.ali_refresh_token`,
       );
     }
-    this.clientId = (policy.access_key ?? '').trim() || DEFAULT_CLIENT_ID;
     this.clientSecret = (policy.secret_key ?? '').trim();
+    const explicitClientId = (policy.access_key ?? '').trim();
+    const customTokenUrl = (this.settings.ali_token_url ?? '').trim();
+    if (customTokenUrl) {
+      try {
+        assertSafeRemoteUrl(customTokenUrl);
+      } catch {
+        throw new Error(
+          `阿里云盘策略「${policy.name}」的 token 接口地址不合法（须为公网 https 地址）：${customTokenUrl}`,
+        );
+      }
+      this.tokenUrl = customTokenUrl;
+      // 社区中转端点自带凭据；除非管理员显式填了 client_id，否则不带过去，
+      // 免得公共 AppID 与社区 token 归属的应用对不上（InvalidClient）。
+      this.omitClientId = !explicitClientId;
+    } else {
+      this.tokenUrl = TOKEN_URL;
+      this.omitClientId = false;
+    }
+    this.clientId = explicitClientId || DEFAULT_CLIENT_ID;
     this.driveIdHint = (this.settings.ali_drive_id ?? '').trim();
     this.rootFolderId = (this.settings.ali_root_folder_id ?? '').trim() || 'root';
     this.rootPath = normalizeRoot(policy.bucket_name);
@@ -128,11 +157,12 @@ export class AliyundriveDriver implements StorageDriver {
     const body: Record<string, string> = {
       grant_type: 'refresh_token',
       refresh_token: hit?.refreshToken ?? this.refreshToken,
-      client_id: this.clientId,
     };
+    // 走社区中转端点且未显式配置 client_id 时不下发，由端点注入自己的凭据。
+    if (!this.omitClientId) body.client_id = this.clientId;
     if (this.clientSecret) body.client_secret = this.clientSecret;
 
-    const res = await safeFetch(TOKEN_URL, {
+    const res = await safeFetch(this.tokenUrl, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),

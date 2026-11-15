@@ -81,7 +81,9 @@ const PROVIDERS: Record<string, ProviderMeta> = {
     intro:
       "走官方开放平台 OpenAPI（/adrive/v1.0），Bearer Token 鉴权，2 小时自动续期。这是四家里唯一有正式 API 的。",
     guide:
-      "用任意扫码工具（如 aliyundrive-webdav / alist 的授权页）拿到 refresh_token 填入。若你注册了自己的开放平台应用，把 client_id / client_secret 一并填上，否则用内置公共 AppID。",
+      "打开 https://alistgo.com/tool/aliyundrive/request 用阿里云盘 App 扫码授权，把页面给出的 refresh_token 填进来。注意：官方自 2025-07 起暂停个人开发者入驻，扫码发的 token 归社区公共应用，需把下方「token 接口地址」填为 https://api.alistgo.com/alist/ali_open/token（client_id / client_secret 留空）。",
+    tokenLabel: "refresh_token（必填）",
+    tokenHint: "扫码授权页给出的一长串，直接粘贴",
   },
 };
 
@@ -343,6 +345,19 @@ const NetdiskWizard = ({ onSubmit, preset }: NetdiskWizardProps) => {
                   onChange={(e) => updateSettings({ ali_refresh_token: e.target.value })}
                 />
                 <NoMarginHelperText>{meta.guide}</NoMarginHelperText>
+              </FormControl>
+            </SettingForm>
+            <SettingForm title="token 接口地址（可选）" lgWidth={12}>
+              <FormControl fullWidth>
+                <DenseFilledTextField
+                  value={text("ali_token_url")}
+                  onChange={(e) => updateSettings({ ali_token_url: e.target.value })}
+                  placeholder="https://api.alistgo.com/alist/ali_open/token"
+                />
+                <NoMarginHelperText>
+                  留空用官方端点。社区扫码发的 token 请填
+                  https://api.alistgo.com/alist/ali_open/token；此时 client_id / client_secret 留空。
+                </NoMarginHelperText>
               </FormControl>
             </SettingForm>
             <SettingForm title="client_id（可选）" lgWidth={12}>

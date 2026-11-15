@@ -298,6 +298,8 @@ export interface PolicySetting {
 
   /** 阿里云盘：refresh_token（长期有效，会轮换） */
   ali_refresh_token?: string;
+  /** 阿里云盘：token 端点，留空用官方；社区扫码 token 填中转端点 */
+  ali_token_url?: string;
   /** 阿里云盘：盘 ID（留空自动取 resource drive） */
   ali_drive_id?: string;
   /** 阿里云盘：根目录 file_id，默认 root */
