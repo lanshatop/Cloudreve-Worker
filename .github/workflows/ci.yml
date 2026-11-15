@@ -180,7 +180,11 @@ jobs:
           gh release upload frontend-assets "$ASSET" --clobber
           echo "已发布 $ASSET"
 
-  # 真的把 Worker 发布到 Cloudflare；没配 CF secrets 时部署步骤跳过。
+  # 真的把 Worker 发布到 Cloudflare。
+  #
+  # ⚠️ 缺凭据时**必须失败**，不能静默跳过：这里曾经是「没配 secret 就
+  # notice + skip」，job 依旧是绿色，于是线上长期停在旧版本而没人察觉
+  # （前端新字段上线时踩过）。现在缺任何一项都直接红，并指出缺什么。
   deploy-check:
     name: Deploy to Cloudflare
     runs-on: ubuntu-latest
@@ -218,15 +222,22 @@ jobs:
       - name: 安装依赖
         run: npm install
 
-      - name: 检查是否已配置部署凭据
-        id: creds
+      # 部署凭据是**硬性前提**：缺一项就让整个 job 红，不再静默跳过。
+      # DATABASE_URL 也算凭据——没有它，deploy.mjs 会发一个连不上库的
+      # Worker 上去，比不部署更糟。
+      - name: 检查部署凭据（缺失即失败）
         run: |
-          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "ok=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::未配置 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets，跳过真实部署检查"
+          set -euo pipefail
+          missing=()
+          [ -n "${CLOUDFLARE_API_TOKEN:-}" ] || missing+=("CLOUDFLARE_API_TOKEN")
+          [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ] || missing+=("CLOUDFLARE_ACCOUNT_ID")
+          [ -n "${DATABASE_URL:-}" ] || missing+=("DATABASE_URL")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::缺少部署凭据：${missing[*]}。请在仓库 Settings → Secrets and variables → Actions 中添加后重跑。"
+            echo "缺少的 secret：${missing[*]}" >&2
+            exit 1
           fi
+          echo "部署凭据齐备（token/account/db）"
 
       # 全量同步放在部署**之前**：备库先对齐到主库当前状态，
       # 再把新代码发布出去，避免出现「新代码 + 旧数据」的窗口。
@@ -244,11 +255,10 @@ jobs:
           fi
 
       - name: 主库 → 备库全量同步（自动为备库建表）
-        if: steps.creds.outputs.ok == 'true' && steps.backups.outputs.ok == 'true'
+        if: steps.backups.outputs.ok == 'true'
         run: npm run db:sync
 
       - name: 真实部署（自动复用/创建 KV、R2）
-        if: steps.creds.outputs.ok == 'true'
         run: node scripts/deploy.mjs
 
   # -------------------------------------------------------------------------
