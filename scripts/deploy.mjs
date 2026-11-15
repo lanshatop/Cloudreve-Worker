@@ -56,7 +56,12 @@ function runOrDie(cmd, args, label, opts) {
 
 /** npx 在 Windows 上需要 shell；CI 是 Linux。 */
 function npxArgs(args) {
-  return process.platform === 'win32' ? args : ['--yes', 'wrangler', ...args];
+  // ⚠️ Windows 分支必须带上 'wrangler'：`npx.cmd kv ...` 会让 npx 去解析一个
+  // 名叫 "kv" 的第三方 npm 包（打出 `USAGE: kv put|get|del|has`），而不是
+  // 本项目依赖的 wrangler。本机跑走 node_modules 里装好的 wrangler，无需 --yes。
+  return process.platform === 'win32'
+    ? ['wrangler', ...args]
+    : ['--yes', 'wrangler', ...args];
 }
 const NPX = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 

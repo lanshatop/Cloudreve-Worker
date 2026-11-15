@@ -77,45 +77,6 @@ bucket_name = "cloudreve-worker"
 # 配 FRONTEND_URL 后反代优先于 [assets]。
 # ---------------------------------------------------------------------------
 
-# >>> multi-kv:begin
-# 本区由 scripts/setup-kv.mjs 自动生成，请勿手改。
-# KV_COUNT = 5（上限 5，超过则拒绝构建）
-# 角色分工见 src/lib/kvRouter.ts：
-#   KV_1=site(站点设置缓存) KV_2=session(会话/验证码/2FA)
-#   KV_3=upload(上传/打包/WebDAV锁) KV_4=cred(外部凭据缓存)
-#   KV_5=flag(自举标记)    KV=兜底（未配置 KV_n 时所有角色回落到它）
-
-[[kv_namespaces]]
-binding = "KV_1"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_1"
-preview_id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_PREVIEW_1"
-
-[[kv_namespaces]]
-binding = "KV_2"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_2"
-preview_id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_PREVIEW_2"
-
-[[kv_namespaces]]
-binding = "KV_3"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_3"
-preview_id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_PREVIEW_3"
-
-[[kv_namespaces]]
-binding = "KV_4"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_4"
-preview_id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_PREVIEW_4"
-
-[[kv_namespaces]]
-binding = "KV_5"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_5"
-preview_id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_PREVIEW_5"
-
-[[kv_namespaces]]
-binding = "KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_PREVIEW"
-# <<< multi-kv:end
-
 # ---------------------------------------------------------------------------
 # 归档区 KV（可选，与上面的 KV_1..KV_5 相互独立）。
 #
@@ -131,6 +92,45 @@ preview_id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID_PREVIEW"
 # binding = "ARCHIVE_KV"
 # id = "REPLACE_WITH_YOUR_ARCHIVE_KV_NAMESPACE_ID"
 # preview_id = "REPLACE_WITH_YOUR_ARCHIVE_KV_NAMESPACE_ID_PREVIEW"
+
+# >>> multi-kv:begin
+# 本区由 scripts/setup-kv.mjs 自动生成，请勿手改。
+# KV_COUNT = 5（上限 5，超过则拒绝构建）
+# 角色分工见 src/lib/kvRouter.ts：
+#   KV_1=site(站点设置缓存) KV_2=session(会话/验证码/2FA)
+#   KV_3=upload(上传/打包/WebDAV锁) KV_4=cred(外部凭据缓存)
+#   KV_5=flag(自举标记)    KV=兜底（未配置 KV_n 时所有角色回落到它）
+
+[[kv_namespaces]]
+binding = "KV_1"
+id = "02768c7c541c409ea1b8a48c412c53b5"
+preview_id = "02768c7c541c409ea1b8a48c412c53b5"
+
+[[kv_namespaces]]
+binding = "KV_2"
+id = "0d216d052efd49bd8a96a42cd427606a"
+preview_id = "0d216d052efd49bd8a96a42cd427606a"
+
+[[kv_namespaces]]
+binding = "KV_3"
+id = "bf86124d30434927934ec33f2619159c"
+preview_id = "bf86124d30434927934ec33f2619159c"
+
+[[kv_namespaces]]
+binding = "KV_4"
+id = "f779a3b751cb498688b608eebe0bfaa7"
+preview_id = "f779a3b751cb498688b608eebe0bfaa7"
+
+[[kv_namespaces]]
+binding = "KV_5"
+id = "976f3fd2b25f4f1a8dd6cf6330ec3593"
+preview_id = "976f3fd2b25f4f1a8dd6cf6330ec3593"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "365406a864374068a5ee2eb07f58b684"
+preview_id = "365406a864374068a5ee2eb07f58b684"
+# <<< multi-kv:end
 
 [assets]
 directory = "./frontend"
@@ -160,8 +160,14 @@ run_worker_first = ["/api/*", "/s/*", "/f/*", "/dav", "/dav/*", "/manifest.json"
 #    subrequests 的预算烧光。「清空再重填」在构建期由
 #    scripts/kv-purge-refill.mjs 完成（走 CLI 批量接口，无预算限制）。
 # ---------------------------------------------------------------------------
-[triggers]
-crons = ["0 * * * *"]
+# ⚠️ cron 暂时关闭：Workers 免费档**全账号**只能有 5 个 cron 触发器，本账号
+#    已被其他 Worker 占满，每次部署都会因 trigger 更新失败而以非零码退出
+#    （code: 10072），连带 CI 变红。影响：每小时的缓存刷新与回收站到期清理
+#    不会自动跑（回收站过期文件要手动清；设置缓存靠 KV TTL 300s 自然过期，
+#    不受影响）。删除/关闭账号里其他 Worker 的 cron，或升级付费档后，把下面
+#    两行取消注释即可恢复。
+# [triggers]
+# crons = ["0 * * * *"]
 
 [observability]
 enabled = true
