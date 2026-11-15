@@ -27,6 +27,21 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+// 文本输入换行归一：--check 逐字节比对产物。Windows 本地 core.autocrlf=true
+// 会把源码 checkout 成 CRLF，而 Linux CI 是 LF —— .sql/.html 以 text loader
+// 内嵌成字符串后，CRLF 会变成产物里的 `\r` 转义，两边产物永远不等。
+// 统一在读取时归一为 LF，保证 Windows 本地与 CI 打出的包字节恒等。
+const normalizeEolPlugin = {
+  name: 'normalize-eol',
+  setup(build) {
+    build.onLoad({ filter: /\.(sql|html)$/ }, async (args) => {
+      const { promises: fsp } = await import('node:fs');
+      const text = await fsp.readFile(args.path, 'utf8');
+      return { contents: text.replace(/\r\n?/g, '\n'), loader: 'text' };
+    });
+  },
+};
+
 // ---- 1. 前端产物 ------------------------------------------------------------
 // 复用 CF 部署同款的 fetch-frontend.mjs：优先下载 Release 预构建包，
 // 失败回落源码构建。产物目录 frontend/ 与 wrangler [assets] 共用一份。
@@ -88,8 +103,19 @@ await esbuild.build({
   alias: {
     'cloudflare:sockets': path.join(ROOT, 'src', 'edgeone', 'socket-shim.ts'),
   },
+  plugins: [normalizeEolPlugin],
   logLevel: 'silent',
 });
+
+// 换行归一：--check 是逐字节比对。Windows 上 core.autocrlf=true 会把源码
+// checkout 成 CRLF，esbuild 会把这些 \r 原样带进内联文本与模板字符串，
+// 导致 Windows 本地产物与 Linux CI 产物字节不同、比对永远失败。
+// 统一归一成 LF 后，两边产物一致（JS 对换行不敏感，运行时无影响）。
+{
+  const { readFileSync, writeFileSync } = await import('node:fs');
+  const buf = readFileSync(OUTFILE, 'utf8');
+  if (buf.includes('\r')) writeFileSync(OUTFILE, buf.replace(/\r\n?/g, '\n'), 'utf8');
+}
 
 if (CHECK) {
   const { readFileSync, rmSync } = await import('node:fs');

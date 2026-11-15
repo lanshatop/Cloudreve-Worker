@@ -672,794 +672,794 @@ ${t.stack??""}`}try{return JSON.stringify(t)??String(t)}catch{return String(t)}}
 \r
 `+i}async function Mw(t,e){let r=t.timeoutMs??cI;if(!t.host)throw new Nt("SMTP \u670D\u52A1\u5668\u5730\u5740\u4E3A\u7A7A");if(t.port===25)throw new Nt("Cloudflare Workers \u7981\u6B62\u8FDE\u63A5 25 \u7AEF\u53E3\uFF08\u53CD\u6EE5\u7528\u7B56\u7565\uFF09\u3002\u8BF7\u628A SMTP \u7AEF\u53E3\u6539\u6210 465\uFF08SSL\uFF09\u6216 587\uFF08STARTTLS\uFF09\u3002");if(!Number.isInteger(t.port)||t.port<=0||t.port>65535)throw new Nt(`SMTP \u7AEF\u53E3\u4E0D\u5408\u6CD5\uFF1A${t.port}`);let n=t.port===465,i=n?"on":"starttls",o=(e.from.split("@")[1]?.trim()||"localhost").replace(/[^A-Za-z0-9.\-]/g,"")||"localhost",a=$w({hostname:t.host,port:t.port},{secureTransport:i,allowHalfOpen:!1}),c=new lf(a,r),l=async()=>{try{await El(a.opened,r,"\u5EFA\u7ACB TCP \u8FDE\u63A5")}catch(h){throw new Nt(`\u65E0\u6CD5\u8FDE\u63A5 ${t.host}:${t.port} \u2014\u2014 ${h instanceof Error?h.message:String(h)}`)}let u=await c.readResponse();if(u.code!==220)throw new Nt(`\u670D\u52A1\u5668\u672A\u5C31\u7EEA\uFF1A${u.text}`,u.code,u.text);let d=await c.command(`EHLO ${o}`,[250]);if(!n){let h=await c.commandRaw("STARTTLS");if(h.code===220){try{c.upgrade()}catch(f){throw new Nt(`TLS \u5347\u7EA7\u5931\u8D25\uFF1A${f instanceof Error?f.message:String(f)}`)}d=await c.command(`EHLO ${o}`,[250])}else if(t.forceEncryption)throw new Nt(`\u670D\u52A1\u5668\u4E0D\u652F\u6301 STARTTLS\uFF08\u8FD4\u56DE ${h.code}\uFF09\uFF0C\u800C\u8BBE\u7F6E\u91CC\u8981\u6C42\u5F3A\u5236\u52A0\u5BC6`,h.code,h.text)}if(t.user){let h=d.lines.find(_=>/AUTH\s/i.test(_))??"",f=h.toUpperCase(),w=t.user,g=t.pass??"";if(f.includes("PLAIN"))await c.command(`AUTH PLAIN ${Ts(`\0${w}\0${g}`)}`,[235]);else if(f.includes("LOGIN")||f===""){let _=await c.command("AUTH LOGIN",[334]);await c.command(Ts(w),[334]),await c.command(Ts(g),[235])}else throw new Nt(`\u670D\u52A1\u5668\u4E0D\u652F\u6301\u53EF\u7528\u7684\u8BA4\u8BC1\u65B9\u5F0F\uFF08${h.trim()||"\u672A\u516C\u544A AUTH"}\uFF09`)}await c.command(`MAIL FROM:<${e.from}>`,[250]),await c.command(`RCPT TO:<${e.to}>`,[250,251]),await c.command("DATA",[354]);let p=pI(e,o).replace(/^\./gm,"..");await c.writeRaw(p+`\r
 .\r
-`);let m=await c.readResponse();if(m.code!==250)throw new Nt(`\u670D\u52A1\u5668\u62D2\u6536\uFF1A${m.text}`,m.code,m.text);try{await c.command("QUIT",[221])}catch{}};try{await El(l(),lI,"\u5B8C\u6210\u6574\u5C01\u90AE\u4EF6\u6295\u9012")}finally{await c.close()}}function Bw(t,e){return t.replace(/\{\{\s*\.([A-Za-z0-9_.]+)\s*\}\}/g,(r,n)=>{let i=e;for(let s of n.split(".")){if(i===null||typeof i!="object")return"";i=i[s]}return i==null?"":i instanceof Date?i.toISOString():String(i)})}function fI(t,e){if(t.length===0)return null;if(e){let r=t.find(n=>n.language.toLowerCase()===e.toLowerCase());if(r)return r}return t[0]}function hI(t){try{let e=JSON.parse(t);return Array.isArray(e)?e.filter(r=>typeof r=="object"&&r!==null&&typeof r.title=="string"&&typeof r.body=="string"):[]}catch{return[]}}function mI(t){if(t==null)return!1;let e=t.trim().toLowerCase();return e===""?!1:e!=="0"&&e!=="false"&&e!=="off"&&e!=="no"}var zr=class{constructor(e){this.ctx=e}ctx;get available(){return this.ctx.settings.smtp.host.trim()!==""}resolveConfig(e){let r=this.ctx.settings.smtp,n=this.ctx.settings.mailSender;return{host:r.host.trim(),port:r.port,user:r.user.trim(),pass:r.pass,forceEncryption:r.forceEncryption,fromName:n.name.trim()||"Cloudreve",fromAddress:n.address.trim(),replyTo:n.replyTo.trim(),...e}}async send(e,r,n,i,s=40028){let o=this.resolveConfig(i);if(!o.host)throw new R(40028,"No available email provider");if(!o.fromAddress)throw new R(50005,"Sender address (fromAdress) is not configured");try{await Mw({host:o.host,port:o.port,user:o.user||void 0,pass:o.pass,forceEncryption:o.forceEncryption},{from:o.fromAddress,fromName:o.fromName,replyTo:o.replyTo||void 0,to:e,subject:r,html:n}),ue(this.ctx,"email_sent",this.ctx.user?.id??null,{to:e,title:r})}catch(a){let c=a instanceof Nt||a instanceof Error?a.message:String(a);throw new R(s,c,a instanceof Error?a.name:void 0)}}templateData(e,r,n){let i=this.ctx.settings.siteUrl.replace(/\/+$/,""),s=o=>o&&!/^https?:\/\//i.test(o)?`${i}${o.startsWith("/")?"":"/"}${o}`:o;return{CommonContext:{SiteBasic:{Name:this.ctx.settings.siteName,Title:this.ctx.settings.siteTitle,ID:this.ctx.settings.siteId,Description:this.ctx.settings.get("siteDes",""),Script:this.ctx.settings.siteScript},Logo:{Normal:s(this.ctx.settings.get("site_logo","")),Light:s(this.ctx.settings.get("site_logo_light",""))},SiteUrl:i},User:{ID:e?.id??0,Email:e?.email??"",Nick:e?.nick??"",CreatedAt:e?.created_at??"",Storage:e?.storage??0},Url:r,...n}}render(e,r,n,i){let s=hI(this.ctx.settings.get(e,"")),o=fI(s,r.settings?.email_language);if(!o)throw new R(50005,i);return{title:Bw(o.title,n),body:Bw(o.body,n)}}async sendActivationEmail(e,r){let{title:n,body:i}=this.render("mail_activation_template",e,this.templateData(e,r),"Activation email template not configured");await this.send(e.email,n,i)}async sendResetEmail(e,r){let{title:n,body:i}=this.render("mail_reset_template",e,this.templateData(e,r),"Reset email template not configured");await this.send(e.email,n,i)}async sendReceiptEmail(e,r){let n=this.templateData(e,"",{Order:{No:r.orderNo,ProductName:r.productName,ProductType:r.productType,Amount:(r.amountFen/100).toFixed(2),TradeNo:r.tradeNo??"",PaidAt:r.paidAt?r.paidAt.toISOString():""}}),{title:i,body:s}=this.render("mail_receipt_template",e,n,"Receipt email template not configured");await this.send(e.email,i,s)}async sendExceedQuotaEmail(e){let{title:r,body:n}=this.render("mail_exceed_quota_template",e,this.templateData(e,""),"Exceed quota email template not configured");await this.send(e.email,r,n)}async sendTestEmail(e,r){let n=this.resolveConfig();if(!e||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))throw new R(40001,"Invalid recipient address");let i=r.smtpPort??String(n.port),s=Number.parseInt(i,10);if(!Number.isFinite(s))throw new R(40001,"Invalid SMTP port");let o={host:(r.smtpHost??n.host).trim(),port:s,user:(r.smtpUser??n.user).trim(),pass:r.smtpPass??n.pass,forceEncryption:r.smtpEncryption!==void 0?mI(r.smtpEncryption):n.forceEncryption,fromName:(r.fromName??n.fromName).trim()||"Cloudreve",fromAddress:(r.fromAdress??n.fromAddress).trim(),replyTo:(r.replyTo??n.replyTo).trim()};if(!o.host)throw new R(50005,"SMTP host is not configured");try{await this.send(e,"Cloudreve SMTP Test","This is a test email from Cloudreve.",o,50005)}catch(a){throw a instanceof R&&a.code===50005?new R(50005,`Failed to send test email: ${a.message}`):a}}};gn();ia();kr();Dr();Jt();We();Ic();function Sl(t){let e=t("CF-Connecting-IP");if(e)return e.trim();let r=t("X-Forwarded-For");if(r){let n=r.split(",").map(i=>i.trim()).filter(Boolean);if(n.length)return n[n.length-1]}return"unknown"}function a_(t){return/^\d{1,3}(?:\.\d{1,3}){3}$/.test(t)?`${t.split(".").slice(0,3).join(".")}.0/24`:/^[0-9a-fA-F:]+$/.test(t)&&(t.match(/:/g)??[]).length>=2?`${t.split(":").slice(0,2).join(":")}::/32`:t}_i();var vl=new WeakMap;function sa(t,e,r){let n=vl.get(t);n&&n.push({name:e,ms:performance.now()-r})}function c_(t){vl.has(t)||vl.set(t,[])}function l_(t){return vl.get(t)}function u_(){return async(t,e)=>{t.header("X-Content-Type-Options","nosniff"),t.header("Referrer-Policy","strict-origin-when-cross-origin"),t.header("X-Frame-Options","SAMEORIGIN"),await e()}}async function _I(t,e,r,n){if(!e||e.startsWith(zu)||!e.startsWith(Ma))return;let i=e.slice(Ma.length);if(!i)return;let o=await new Ar(r.secretKey).verify(i);if(!o||o.token_type!=="access")return;let c=new jr(r.hashIdSalt).decodeUserID(o.sub);if(c===null)return;let l=await pp(t,n.sql,c);if(!(!l||l.status!=="active"))return{user:l,claims:o}}function d_(){return async(t,e)=>{let r=performance.now(),n=t.env,i=t.req.header("X-Correlation-ID")??crypto.randomUUID();t.set("correlationId",i),xc(n),yp(n);let s=Ct(n),o=sf(),a=b=>t.executionCtx.waitUntil(b),c;if(o)try{c=await o}catch{c=await jt(n,s,a)}else c=await jt(n,s,a);let l=performance.now()-r;(!c.get("secret_key")||!c.get("hash_id_salt"))&&a(ta(n,s).catch(()=>{}));let u=new jr(c.hashIdSalt),d=new Ar(c.secretKey),p,m=t.req.header("Authorization")??null,h=await _I(n,m,c,s),f=h?.user,w=performance.now()-r;if(f&&h?.claims?.client_id&&(p=h.claims.scopes),f?.settings?.group_pack){let b=f.settings.group_pack;if(b.expire_at&&new Date(b.expire_at).getTime()<=Date.now())try{let A=new vr(s.sql);await A.clearGroupPack(f.id,b.prev_group_id),f.group_users=b.prev_group_id,f.settings={...f.settings??{},group_pack:null};let E=await A.byIdWithGroup(f.id);E&&(f.group=E.group),await fp(n,f.id)}catch{}}let g=new Wt(n,c,u,d,f,p,s);c_(g),g.clientIp=Sl(b=>t.req.header(b)),g.setBackgroundHooks({waitUntil:b=>t.executionCtx.waitUntil(b),onQuotaExceeded:b=>{let T=ee(n,"session");T&&t.executionCtx.waitUntil((async()=>{let A=`mail_exceed_quota_sent_${b.id}`;try{if(await T.get(A))return;await T.put(A,"1",{expirationTtl:86400});let E=new zr(g);E.available&&await E.sendExceedQuotaEmail(b),ue(g,"user_exceed_quota_notified",b.id)}catch{}})())}}),t.set("ctx",g),t.header("X-Correlation-ID",i),await e();let _=performance.now()-r;try{let b=(l_(g)??[]).map(T=>`, ${T.name};dur=${T.ms.toFixed(1)}`).join("");t.header("Server-Timing",`settings;dur=${l.toFixed(1)}, auth;dur=${w.toFixed(1)}, total;dur=${_.toFixed(1)}${b}`)}catch{}}}function j(t){return t.get("ctx")}function df(){return globalThis.caches?.default??null}function pf(t,e){try{return new Request(`${t.replace(/\/+$/,"")}${e}`,{method:"GET"})}catch{return null}}async function Jn(t,e){let r=df();if(!r)return null;let n=pf(t,e);if(!n)return null;try{return await r.match(n)??null}catch{return null}}function Is(t,e,r,n,i=21600){let s=df();if(!s||!t||n.status!==200)return;let o=pf(e,r);if(o)try{let a=new Headers(n.headers);a.set("Cache-Control",`public, max-age=${i}`),a.delete("Content-Disposition"),a.delete("Vary"),a.delete("Pragma"),a.delete("Expires"),a.delete("Set-Cookie");let c=n.clone().body;if(!c)return;let l=new Response(c,{status:200,headers:a}),u=s.put(o,l).catch(()=>{});try{t(u)}catch(d){console.error("edge cache: waitUntil unavailable, write may be dropped",d)}}catch{}}function oa(t,e){let r=new Headers(t.headers);for(let[n,i]of Object.entries(e))r.set(n,i);return new Response(t.body,{status:t.status,statusText:t.statusText,headers:r})}async function p_(t,e,r,n){let i=df();if(!i)return"no-cache-api";if(r.status!==200)return`skip-status-${r.status}`;let s=pf(t,e);if(!s)return"bad-key";try{let o=new Headers(r.headers);o.set("Cache-Control",`public, max-age=${n}`),o.delete("Content-Disposition"),o.delete("Vary"),o.delete("Pragma"),o.delete("Expires"),o.delete("Set-Cookie");let a=r.clone().body;return a?(await i.put(s,new Response(a,{status:200,headers:o})),"stored"):"no-body"}catch(o){return`error:${o instanceof Error?o.message:String(o)}`}}function f_(t,e){let r=Number(t.headers.get("Content-Length")??"");return{body:t.body,size:Number.isFinite(r)&&r>0?r:e,contentType:t.headers.get("Content-Type")??void 0}}We();var bI="v1";async function hf(t){let e=new TextEncoder().encode(t),r=await crypto.subtle.digest("SHA-256",e),n=new Uint8Array(r),i="";for(let s=0;s<n.length;s++)i+=n[s].toString(16).padStart(2,"0");return i}var ff=new Map,EI=2e3;function h_(t){return(t.JWT_SECRET??"").slice(0,8)||"dev"}async function m_(t,e){let r=`${h_(t)}:${e}`,n=Date.now(),i=ff.get(r);if(i&&n-i.t<EI)return i.v;let s="0";try{let o=ee(t,"session");if(o){let a=await o.get(`edge:ep:${e}`);a&&(s=a)}}catch{}return ff.set(r,{v:s,t:n}),s}async function g_(t,e){try{let r=ee(t,"session");if(!r)return;await r.put(`edge:ep:${e}`,String(Date.now()),{expirationTtl:3600}),ff.delete(`${h_(t)}:${e}`)}catch{}}function y_(t){return new URL(t.req.url).origin.replace(/\/+$/,"")}function SI(t){let e=new URL(t.req.url),r=[...e.searchParams.keys()].sort();return r.length===0?"":r.map(n=>`${n}=${e.searchParams.get(n)}`).join("&")}function w_(t,e,r){return`/__edge_auth__/${[bI,e,r,encodeURIComponent(t.req.path),encodeURIComponent(SI(t)),encodeURIComponent(t.req.header("Origin")??"")].join("/")}`}async function __(t,e,r){let n=y_(t),i=w_(t,e,r);return Jn(n,i)}function b_(t,e,r,n){let i=y_(t),s=w_(t,e,r);Is(o=>t.executionCtx.waitUntil(o),i,s,t.res,n)}var E_="edge:ep:share";async function S_(t){try{let e=ee(t,"session");return e?await e.get(E_)??"0":"0"}catch{return"0"}}async function aa(t){try{let e=ee(t,"session");if(!e)return;await e.put(E_,String(Date.now()))}catch{}}var vI="/api/v4/file";function v_(t){if(t.req.method!=="GET")return!1;let e=t.req.path;return TI.test(e)?!t.req.header("Authorization"):e==="/api/v4/file"?t.req.header("Authorization")?!1:(t.req.query("uri")??"").includes("@share"):t.req.header("Authorization")?!1:xI.test(e)}function RI(t){return 60}var TI=/^\/api\/v4\/site\/config\//,xI=/^\/api\/v4\/site\/ping$/;function R_(t,e){let r=t.req.header("Origin"),n=new URL(t.req.url).search;return`${t.req.path}${n}${r?`|o=${r}`:""}${e!=="0"?`|s=${e}`:""}`}async function T_(t){return t.req.path!==vI?"0":S_(t.env)}function x_(){return async(t,e)=>{if(!v_(t))return e();let r=new URL(t.req.url).origin,n=await Jn(r,R_(t,await T_(t)));if(n){let i=t.req.header("X-Correlation-ID")??crypto.randomUUID();return oa(n,{"X-Correlation-ID":i,"X-Edge-Cache":"hit"})}return e()}}function I_(){return async(t,e)=>{await e();let r=t.res;if(r.status!==200||!v_(t))return;try{if((await r.clone().json()).code!==0)return}catch{return}let n=new URL(t.req.url).origin,i=await p_(n,R_(t,await T_(t)),r,RI(t));if(r.body&&!r.bodyUsed){let s=new Headers(r.headers);s.set("X-Edge-Cache",i),t.res=new Response(r.body,{status:r.status,headers:s})}}}var II=[{re:/^\/api\/v4\/user\/me$/,ttl:30},{re:/^\/api\/v4\/site\/config\/(login|explorer|thumb)$/,ttl:30},{re:/^\/api\/v4\/file$/,ttl:60},{re:/^\/api\/v4\/file\/info$/,ttl:60},{re:/^\/api\/v4\/file\/thumb$/,ttl:60}];function AI(t){if(t.req.method!=="GET")return null;let e=t.req.path;for(let r of II)if(r.re.test(e))return r;return null}async function A_(t){try{let r=await t.res.clone().json();return typeof r.code=="number"?r.code:null}catch{return null}}function k_(){return async(t,e)=>{let r=AI(t),n,i,s=0;if(r){let a=t.req.header("Authorization")??null;if(a){let c=await hf(a),l=await m_(t.env,c),u=await __(t,c,l);if(u){let d=t.req.header("X-Correlation-ID")??crypto.randomUUID();return oa(u,{"X-Correlation-ID":d,"X-Edge-Cache":"hit","Cache-Control":`private, max-age=0, stale-while-revalidate=${r.ttl}`})}n=c,i=l,s=r.ttl}}await e();let o=t.res;if(n&&o.status===200){await A_(t)===0&&(b_(t,n,i,s),t.res=oa(o,{"Cache-Control":`private, max-age=0, stale-while-revalidate=${s}`,"X-Edge-Cache":"miss"}));return}if(r===null&&t.req.method!=="GET"&&o.status===200){let a=t.req.header("Authorization");a&&await A_(t)===0&&await g_(t.env,await hf(a))}}}Ot();$e();gn();var N_=`-- =============================================================================\r
--- Cloudreve Edge \u2014 Neon (PostgreSQL) \u521D\u59CB\u5316 schema\r
---\r
--- \u672C\u6587\u4EF6\u662F Cloudreve v4 \`ent/schema/*.go\` \u5728 PostgreSQL \u4E0A\u7684\u7B49\u4EF7\u6620\u5C04\u3002\r
--- \u8868\u540D\u3001\u5217\u540D\u3001\u7EA6\u675F\u3001\u7D22\u5F15\u540D\u5C3D\u91CF\u4E0E ent \u751F\u6210\u7684\u4FDD\u6301\u4E00\u81F4\uFF0C\u4FBF\u4E8E\u65E5\u540E\u5BF9\u7167\u3002\r
---\r
--- \u4E0E\u539F\u59CB Go \u7248\u7684\u5DEE\u5F02\uFF08\u6709\u610F\u4E3A\u4E4B\uFF09\uFF1A\r
---   1. \u53BB\u6389\u4E86 nodes / dav_accounts / fsevents / oauth_clients / oauth_grants /\r
---      passkeys \u516D\u5F20\u8868 \u2014\u2014 \u8FB9\u7F18\u7248\u4E0D\u5B9E\u73B0\u591A\u8282\u70B9\u96C6\u7FA4\u3001WebDAV\u3001\u4E8B\u4EF6\u63A8\u9001\u3001OAuth\r
---      \u5E94\u7528\u4E0E Passkey \u767B\u5F55\uFF08\u89C1 README \u7684\u300C\u672A\u5B9E\u73B0\u300D\u6E05\u5355\uFF09\u3002\r
---   2. \u6240\u6709 JSON \u5217\u4F7F\u7528 jsonb\uFF08ent \u7528\u7684\u662F json\uFF09\u3002\r
---   3. \u5E03\u5C14\u4F4D\u96C6\uFF08groups.permissions \u7B49\uFF09\u4F7F\u7528 bytea\uFF0C\u4F4D\u5E8F\u4E0E\u539F\u7248\u4E00\u81F4\uFF08LSB-first\uFF09\u3002\r
---   4. users.group_users \u7B49\u5916\u952E\u4FDD\u7559\uFF0C\u4F46\u90E8\u5206 ON DELETE \u884C\u4E3A\u505A\u4E86\u6536\u655B\uFF0C\u89C1\u6CE8\u91CA\u3002\r
--- =============================================================================\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u7528\u6237\u7EC4\u3002\u4ED8\u8D39\u76F8\u5173\u5B57\u6BB5\u4E00\u6982\u6CA1\u6709\uFF1B\u4FDD\u7559 name / max_storage / speed_limit\uFF0C\r
--- \u56E0\u4E3A\u9700\u6C42\u662F\u300C\u53EA\u780D\u4ED8\u8D39\uFF0C\u4FDD\u7559\u7528\u6237\u7EC4\u914D\u989D\u300D\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS groups (\r
-    id                SERIAL PRIMARY KEY,\r
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at        TIMESTAMPTZ,\r
-    name              TEXT        NOT NULL,\r
-    max_storage       BIGINT,\r
-    speed_limit       INTEGER,\r
-    -- boolset.BooleanSet\uFF0CLSB-first \u4F4D\u5E8F\uFF0C\u89C1 src/lib/boolset.ts\r
-    permissions       BYTEA       NOT NULL DEFAULT ''::bytea,\r
-    settings          JSONB       NOT NULL DEFAULT '{}'::jsonb,\r
-    storage_policy_id INTEGER\r
-);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u7528\u6237\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS users (\r
-    id                SERIAL PRIMARY KEY,\r
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at        TIMESTAMPTZ,\r
-    email             VARCHAR(100) NOT NULL,\r
-    nick              VARCHAR(100) NOT NULL,\r
-    -- \u683C\u5F0F: "<salt>:<sha256hex(password+salt)>"\uFF0C\u517C\u5BB9 v2 \u7684 "md5:<hash>:<salt>"\r
-    password          TEXT,\r
-    status            TEXT        NOT NULL DEFAULT 'active'\r
-                      CHECK (status IN ('active', 'inactive', 'manual_banned', 'sys_banned')),\r
-    storage           BIGINT      NOT NULL DEFAULT 0,\r
-    two_factor_secret TEXT,\r
-    avatar            TEXT,\r
-    settings          JSONB       NOT NULL DEFAULT '{}'::jsonb,\r
-    group_users       INTEGER     NOT NULL\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS user_email ON users (email);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u5B58\u50A8\u7B56\u7565\u3002type \u53D6\u503C\u4E3A 'r2'\uFF08\u8FB9\u7F18\u5185\u7F6E\uFF09\u6216 'onedrive'\uFF0C\u4EE5\u53CA\u539F\u7248\u7684\u5176\u5B83\u53D6\u503C\r
--- \uFF08's3' / 'local' / 'remote' \u7B49\u2014\u2014\u975E r2/onedrive \u7684\u7C7B\u578B\u5728\u5F53\u524D\u5B9E\u73B0\u4E0B\u4E0D\u53EF\u7528\uFF0C\r
--- \u4E0A\u4F20\u65F6\u4F1A\u8FD4\u56DE 40006 \u7B56\u7565\u4E0D\u5141\u8BB8\uFF09\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS storage_policies (\r
-    id                  SERIAL PRIMARY KEY,\r
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at          TIMESTAMPTZ,\r
-    name                TEXT   NOT NULL,\r
-    type                TEXT   NOT NULL,\r
-    server              TEXT,\r
-    bucket_name         TEXT,\r
-    is_private          BOOLEAN,\r
-    access_key          TEXT,\r
-    secret_key          TEXT,\r
-    max_size            BIGINT,\r
-    dir_name_rule       TEXT,\r
-    file_name_rule      TEXT,\r
-    settings            JSONB  NOT NULL DEFAULT '{}'::jsonb,\r
-    node_id             INTEGER\r
-);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u6587\u4EF6\u8282\u70B9\uFF08\u6587\u4EF6\u5939\u4E0E\u6587\u4EF6\u7684\u7EDF\u4E00\u6A21\u578B\uFF09\u3002\u6CE8\u610F\uFF1Afiles \u8868\u6CA1\u6709 deleted_at\uFF0C\r
--- \u56DE\u6536\u7AD9\u662F\u901A\u8FC7\u628A file_children \u6307\u5411 trash \u6839\u5B9E\u73B0\u7684\uFF0C\u4E0E\u539F\u7248\u4E00\u81F4\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS files (\r
-    id                   SERIAL PRIMARY KEY,\r
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    type                 INTEGER NOT NULL,   -- 0=file 1=folder\r
-    name                 TEXT    NOT NULL,\r
-    owner_id             INTEGER NOT NULL,\r
-    size                 BIGINT  NOT NULL DEFAULT 0,\r
-    primary_entity       INTEGER,\r
-    file_children        INTEGER,            -- \u7236\u76EE\u5F55 id\uFF1B\u6839\u76EE\u5F55\u4E3A NULL\r
-    is_symbolic          BOOLEAN NOT NULL DEFAULT false,\r
-    props                JSONB,\r
-    storage_policy_files INTEGER\r
-);\r
-\r
--- \u540C\u540D\u5144\u5F1F\u8282\u70B9\u552F\u4E00\uFF08\u6839\u76EE\u5F55\u81EA\u8EAB file_children \u4E3A NULL\uFF0C\u4E0D\u53C2\u4E0E\u8BE5\u7D22\u5F15\uFF09\u3002\r
-CREATE UNIQUE INDEX IF NOT EXISTS file_file_children_name\r
-    ON files (file_children, name) WHERE file_children IS NOT NULL;\r
-\r
--- \u6BCF\u4E2A\u7528\u6237\u53EA\u6709\u4E00\u4E2A\u6839\u76EE\u5F55\u3002\u300C\u6839\u76EE\u5F55\u300D\u7684\u5224\u5B9A\u6761\u4EF6\u4E0E\u539F\u7248\u4E00\u81F4\uFF1A\r
---   name = '' AND file_children IS NULL\uFF08\u89C1 inventory/file.go RootFolderName\uFF09\u3002\r
--- \u6CE8\u610F\uFF1A\u56DE\u6536\u7AD9\u91CC\u7684\u6587\u4EF6\u540C\u6837\u662F file_children IS NULL\uFF0C\u4F46 name \u975E\u7A7A\uFF0C\r
--- \u6240\u4EE5\u8FD9\u91CC\u5FC5\u987B\u5E26\u4E0A name = '' \u624D\u4E0D\u4F1A\u88AB\u56DE\u6536\u7AD9\u9879\u8BEF\u4F24\u3002\r
-CREATE UNIQUE INDEX IF NOT EXISTS file_owner_root\r
-    ON files (owner_id) WHERE file_children IS NULL AND name = '';\r
-\r
--- \u56DE\u6536\u7AD9\u5217\u8868\u7528\uFF1Afile_children IS NULL \u4E14 name \u975E\u7A7A\r
-CREATE INDEX IF NOT EXISTS file_owner_trash\r
-    ON files (owner_id, type, updated_at) WHERE file_children IS NULL AND name <> '';\r
-\r
-CREATE INDEX IF NOT EXISTS file_file_children_type_updated_at ON files (file_children, type, updated_at);\r
-CREATE INDEX IF NOT EXISTS file_file_children_type_created_at ON files (file_children, type, created_at);\r
-CREATE INDEX IF NOT EXISTS file_file_children_type_size       ON files (file_children, type, size);\r
-CREATE INDEX IF NOT EXISTS file_owner_id                      ON files (owner_id);\r
-CREATE INDEX IF NOT EXISTS file_primary_entity                ON files (primary_entity);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u5B9E\u4F53\uFF08\u6587\u4EF6\u7684\u5B9E\u9645\u5185\u5BB9\u7248\u672C\uFF09\u3002source \u662F\u5B58\u50A8\u540E\u7AEF\u91CC\u7684\u5BF9\u8C61\u952E\u3002\r
--- \u6CE8\u610F\u5217\u540D recycle_options \u5BF9\u5E94 ent \u91CC\u7684 Go \u5B57\u6BB5 props\uFF08StorageKey \u6539\u5199\u8FC7\uFF09\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS entities (\r
-    id                      SERIAL PRIMARY KEY,\r
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at              TIMESTAMPTZ,\r
-    type                    INTEGER NOT NULL,   -- 0=version 1=thumbnail 2=live_photo\r
-    source                  TEXT    NOT NULL,\r
-    size                    BIGINT  NOT NULL,\r
-    reference_count         INTEGER NOT NULL DEFAULT 1,\r
-    storage_policy_entities INTEGER NOT NULL,\r
-    created_by              INTEGER,\r
-    upload_session_id       UUID,\r
-    recycle_options         JSONB\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS entity_storage_policy_entities ON entities (storage_policy_entities);\r
-CREATE INDEX IF NOT EXISTS entity_source                  ON entities (source);\r
-\r
--- \u6587\u4EF6 \u2194 \u5B9E\u4F53 \u591A\u5BF9\u591A\r
-CREATE TABLE IF NOT EXISTS file_entities (\r
-    file_id   INTEGER NOT NULL REFERENCES files (id)    ON DELETE CASCADE,\r
-    entity_id INTEGER NOT NULL REFERENCES entities (id) ON DELETE CASCADE,\r
-    PRIMARY KEY (file_id, entity_id)\r
-);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u5206\u4EAB\u94FE\u63A5\u3002\u6CA1\u6709\u300C\u4ED8\u8D39\u5206\u4EAB\u300D\u76F8\u5173\u5217\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS shares (\r
-    id               SERIAL PRIMARY KEY,\r
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at       TIMESTAMPTZ,\r
-    password         TEXT,\r
-    views            INTEGER NOT NULL DEFAULT 0,\r
-    downloads        INTEGER NOT NULL DEFAULT 0,\r
-    expires          TIMESTAMPTZ,\r
-    remain_downloads INTEGER,\r
-    props            JSONB,\r
-    file_shares      INTEGER,\r
-    user_shares      INTEGER\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS share_file_shares ON shares (file_shares);\r
-CREATE INDEX IF NOT EXISTS share_user_shares ON shares (user_shares);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u6587\u4EF6\u81EA\u5B9A\u4E49\u5143\u6570\u636E\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS metadata (\r
-    id         SERIAL PRIMARY KEY,\r
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at TIMESTAMPTZ,\r
-    name       TEXT    NOT NULL,\r
-    value      TEXT    NOT NULL,\r
-    file_id    INTEGER NOT NULL,\r
-    is_public  BOOLEAN NOT NULL DEFAULT false\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS metadata_file_id_name ON metadata (file_id, name);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u6587\u4EF6\u5916\u94FE\uFF08\u76F4\u94FE\uFF09\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS direct_links (\r
-    id         SERIAL PRIMARY KEY,\r
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at TIMESTAMPTZ,\r
-    name       TEXT    NOT NULL,\r
-    downloads  INTEGER NOT NULL DEFAULT 0,\r
-    speed      INTEGER NOT NULL DEFAULT 0,\r
-    file_id    INTEGER NOT NULL\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS directlink_file_id ON direct_links (file_id);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u7AD9\u70B9\u8BBE\u7F6E\uFF08key-value\uFF09\u3002\u539F\u7248 ent \u91CC name \u662F\u552F\u4E00\u7D22\u5F15\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS settings (\r
-    id         SERIAL PRIMARY KEY,\r
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at TIMESTAMPTZ,\r
-    name       TEXT NOT NULL,\r
-    value      TEXT\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS setting_name ON settings (name);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u5F02\u6B65\u4EFB\u52A1\u3002\u8FB9\u7F18\u7248\u53EA\u7528\u4E8E\u300C\u6253\u5305\u4E0B\u8F7D\u300D\u8FD9\u7C7B\u9700\u8981\u8DE8\u8BF7\u6C42\u4FDD\u5B58\u72B6\u6001\u7684\u4EFB\u52A1\uFF0C\r
--- \u4E0D\u5B9E\u73B0\u8FDC\u7A0B\u4E0B\u8F7D / \u89E3\u538B / \u96C6\u7FA4\u4EFB\u52A1\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS tasks (\r
-    id              SERIAL PRIMARY KEY,\r
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at      TIMESTAMPTZ,\r
-    type            TEXT NOT NULL,\r
-    status          TEXT NOT NULL DEFAULT 'queued'\r
-                    CHECK (status IN ('queued', 'processing', 'suspending', 'error', 'canceled', 'completed')),\r
-    public_state    JSONB NOT NULL DEFAULT '{}'::jsonb,\r
-    private_state   TEXT,\r
-    correlation_id  UUID,\r
-    user_tasks      INTEGER\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS task_user_tasks ON tasks (user_tasks);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u5916\u952E\u7EA6\u675F\uFF08\u653E\u5728\u5EFA\u8868\u4E4B\u540E\uFF0C\u907F\u514D\u5EFA\u8868\u987A\u5E8F\u9020\u6210\u7684\u5FAA\u73AF\u4F9D\u8D56\uFF09\r
--- ---------------------------------------------------------------------------\r
-ALTER TABLE users              DROP CONSTRAINT IF EXISTS users_group_users_fkey;\r
-ALTER TABLE users              ADD  CONSTRAINT users_group_users_fkey\r
-    FOREIGN KEY (group_users) REFERENCES groups (id) ON DELETE NO ACTION;\r
-\r
-ALTER TABLE groups             DROP CONSTRAINT IF EXISTS groups_storage_policy_id_fkey;\r
-ALTER TABLE groups             ADD  CONSTRAINT groups_storage_policy_id_fkey\r
-    FOREIGN KEY (storage_policy_id) REFERENCES storage_policies (id) ON DELETE SET NULL;\r
-\r
-ALTER TABLE files              DROP CONSTRAINT IF EXISTS files_owner_id_fkey;\r
-ALTER TABLE files              ADD  CONSTRAINT files_owner_id_fkey\r
-    FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE NO ACTION;\r
-\r
-ALTER TABLE files              DROP CONSTRAINT IF EXISTS files_file_children_fkey;\r
-ALTER TABLE files              ADD  CONSTRAINT files_file_children_fkey\r
-    FOREIGN KEY (file_children) REFERENCES files (id) ON DELETE SET NULL;\r
-\r
-ALTER TABLE files              DROP CONSTRAINT IF EXISTS files_storage_policy_files_fkey;\r
-ALTER TABLE files              ADD  CONSTRAINT files_storage_policy_files_fkey\r
-    FOREIGN KEY (storage_policy_files) REFERENCES storage_policies (id) ON DELETE SET NULL;\r
-\r
-ALTER TABLE entities           DROP CONSTRAINT IF EXISTS entities_storage_policy_entities_fkey;\r
-ALTER TABLE entities           ADD  CONSTRAINT entities_storage_policy_entities_fkey\r
-    FOREIGN KEY (storage_policy_entities) REFERENCES storage_policies (id) ON DELETE NO ACTION;\r
-\r
-ALTER TABLE entities           DROP CONSTRAINT IF EXISTS entities_created_by_fkey;\r
-ALTER TABLE entities           ADD  CONSTRAINT entities_created_by_fkey\r
-    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL;\r
-\r
-ALTER TABLE shares             DROP CONSTRAINT IF EXISTS shares_file_shares_fkey;\r
-ALTER TABLE shares             ADD  CONSTRAINT shares_file_shares_fkey\r
-    FOREIGN KEY (file_shares) REFERENCES files (id) ON DELETE SET NULL;\r
-\r
-ALTER TABLE shares             DROP CONSTRAINT IF EXISTS shares_user_shares_fkey;\r
-ALTER TABLE shares             ADD  CONSTRAINT shares_user_shares_fkey\r
-    FOREIGN KEY (user_shares) REFERENCES users (id) ON DELETE SET NULL;\r
-\r
-ALTER TABLE metadata           DROP CONSTRAINT IF EXISTS metadata_file_id_fkey;\r
-ALTER TABLE metadata           ADD  CONSTRAINT metadata_file_id_fkey\r
-    FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE NO ACTION;\r
-\r
-ALTER TABLE direct_links       DROP CONSTRAINT IF EXISTS direct_links_file_id_fkey;\r
-ALTER TABLE direct_links       ADD  CONSTRAINT direct_links_file_id_fkey\r
-    FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE NO ACTION;\r
-\r
-ALTER TABLE tasks              DROP CONSTRAINT IF EXISTS tasks_user_tasks_fkey;\r
-ALTER TABLE tasks              ADD  CONSTRAINT tasks_user_tasks_fkey\r
-    FOREIGN KEY (user_tasks) REFERENCES users (id) ON DELETE SET NULL;\r
-\r
--- \u8BF4\u660E\uFF1A\u539F\u7248 storage_policies.node_id \u6307\u5411 nodes \u8868\u3002\u8FB9\u7F18\u7248\u6CA1\u6709\u591A\u8282\u70B9\uFF0C\r
--- \u8BE5\u5217\u4FDD\u7559\u4E3A\u666E\u901A\u53EF\u7A7A\u6574\u6570\uFF08\u4E0D\u5EFA\u5916\u952E\uFF09\uFF0C\u4EE5\u4FBF\u5C06\u6765\u9700\u8981\u65F6\u517C\u5BB9\u539F\u8868\u7ED3\u6784\u3002\r
-\r
-`;var P_=`-- =============================================================================\r
--- 0002 \u2014\u2014 \u7BA1\u7406\u540E\u53F0\u5185\u5BB9\u8868\u4E0E OAuth \u5E94\u7528\r
---\r
--- \u8865\u4E09\u5F20\u8868\uFF0C\u8BA9\u5B98\u65B9\u524D\u7AEF\u7684\u7BA1\u7406\u9875\u9762\u4E0D\u518D\u662F 404\uFF1A\r
---   oauth_clients / oauth_grants \u2014\u2014 \u7BA1\u7406\u540E\u53F0\u300COAuth \u5E94\u7528\u300D\u9875 + \u6388\u6743\u9875\r
---   nodes                        \u2014\u2014 \u7BA1\u7406\u540E\u53F0\u300C\u8282\u70B9\u300D\u9875\uFF08\u8FB9\u7F18\u7248\u6C38\u8FDC\u662F\u7A7A\u5217\u8868\uFF09\r
---\r
--- \u5217\u540D\u4E25\u683C\u5BF9\u9F50\u4E0A\u6E38 ent schema\uFF08ent/schema/oauthclient.go\u3001oauthgrant.go\uFF09\uFF0C\r
--- \u524D\u7AEF\u5B57\u6BB5\u540D\u76F4\u63A5\u53D6\u8FD9\u4E9B\u5217\u540D\u7684 JSON \u5F62\u6001\uFF0C\u6539\u540D\u4F1A\u8BA9\u7BA1\u7406\u9875\u9759\u9ED8\u8BFB\u4E0D\u5230\u503C\u3002\r
---\r
--- \u6CE8\u610F\uFF1Ascripts/migrate.mjs \u6309\u5206\u53F7\u6734\u7D20\u5207\u5206\u8BED\u53E5\uFF0C\u4E14\u4F1A\u5265\u6389 \`--\` \u4E4B\u540E\u7684\u5185\u5BB9\u3002\r
--- \u56E0\u6B64\u672C\u6587\u4EF6\u91CC\u4E0D\u8981\u51FA\u73B0\u5B57\u7B26\u4E32\u5B57\u9762\u91CF\u5305\u4F4F\u7684\u5206\u53F7\uFF0C\u4E5F\u4E0D\u8981\u7528 dollar-quoted \u5757\u3002\r
--- =============================================================================\r
-\r
--- ---------------------------------------------------------------------------\r
--- OAuth \u5E94\u7528\uFF08\u7B2C\u4E09\u65B9\u63A5\u5165 Cloudreve \u7684\u5BA2\u6237\u7AEF\uFF09\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS oauth_clients (\r
-    id            SERIAL PRIMARY KEY,\r
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at    TIMESTAMPTZ,\r
-    guid          TEXT NOT NULL,\r
-    secret        TEXT NOT NULL,\r
-    name          TEXT NOT NULL,\r
-    homepage_url  TEXT,\r
-    redirect_uris JSONB NOT NULL DEFAULT '[]'::jsonb,\r
-    scopes        JSONB NOT NULL DEFAULT '[]'::jsonb,\r
-    props         JSONB NOT NULL DEFAULT '{}'::jsonb,\r
-    is_enabled    BOOLEAN NOT NULL DEFAULT TRUE\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS oauthclient_guid ON oauth_clients (guid);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u7528\u6237\u5BF9 OAuth \u5E94\u7528\u7684\u6388\u6743\u8BB0\u5F55\u3002user_id + client_id \u552F\u4E00\uFF08\u539F\u7248\u5C31\u662F\u8FD9\u4E48\u7EA6\u675F\u7684\uFF09\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS oauth_grants (\r
-    id           SERIAL PRIMARY KEY,\r
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at   TIMESTAMPTZ,\r
-    user_id      INTEGER NOT NULL,\r
-    client_id    INTEGER NOT NULL,\r
-    scopes       JSONB NOT NULL DEFAULT '[]'::jsonb,\r
-    last_used_at TIMESTAMPTZ\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS oauthgrant_user_id_client_id ON oauth_grants (user_id, client_id);\r
-CREATE INDEX IF NOT EXISTS oauthgrant_client_id ON oauth_grants (client_id);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u8282\u70B9\u3002\u8FB9\u7F18\u7248\u662F\u5355\u4F53 Worker\uFF0C\u6CA1\u6709 master/slave \u6982\u5FF5\uFF0C\u8FD9\u5F20\u8868\u53EA\u4F1A\u662F\u7A7A\u7684\uFF1B\r
--- \u5EFA\u5B83\u662F\u4E3A\u4E86\u8BA9\u7BA1\u7406\u540E\u53F0\u300C\u8282\u70B9\u300D\u9875\u9762\u6B63\u5E38\u6E32\u67D3\u7A7A\u5217\u8868\uFF0C\u800C\u4E0D\u662F\u629B 404\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS nodes (\r
-    id              SERIAL PRIMARY KEY,\r
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at      TIMESTAMPTZ,\r
-    name            TEXT NOT NULL,\r
-    type            TEXT NOT NULL DEFAULT 'slave',\r
-    server          TEXT,\r
-    slave_key       TEXT,\r
-    capabilities    TEXT,\r
-    weight          INTEGER,\r
-    status          TEXT NOT NULL DEFAULT 'inactive',\r
-    storage_policy_nodes INTEGER\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS node_storage_policy_nodes ON nodes (storage_policy_nodes);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u5916\u952E\r
--- ---------------------------------------------------------------------------\r
-ALTER TABLE oauth_grants DROP CONSTRAINT IF EXISTS oauth_grants_user_id_fkey;\r
-ALTER TABLE oauth_grants ADD  CONSTRAINT oauth_grants_user_id_fkey\r
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;\r
-\r
-ALTER TABLE oauth_grants DROP CONSTRAINT IF EXISTS oauth_grants_client_id_fkey;\r
-ALTER TABLE oauth_grants ADD  CONSTRAINT oauth_grants_client_id_fkey\r
-    FOREIGN KEY (client_id) REFERENCES oauth_clients (id) ON DELETE CASCADE;\r
-\r
-ALTER TABLE nodes DROP CONSTRAINT IF EXISTS nodes_storage_policy_nodes_fkey;\r
-ALTER TABLE nodes ADD  CONSTRAINT nodes_storage_policy_nodes_fkey\r
-    FOREIGN KEY (storage_policy_nodes) REFERENCES storage_policies (id) ON DELETE SET NULL;\r
-`;var U_=`-- =============================================================================\r
--- 0003 \u2014\u2014 WebDAV \u8D26\u53F7\u4E0E Passkey\r
---\r
--- dav_accounts \u2014\u2014 WebDAV \u8D26\u53F7\uFF08/api/v4/devices/dav + /dav \u534F\u8BAE\u7AEF\u70B9\uFF09\r
--- passkeys     \u2014\u2014 WebAuthn \u51ED\u636E\uFF08/api/v4/user/authn + /session/authn\uFF09\r
---\r
--- \u5217\u540D\u4E25\u683C\u5BF9\u9F50\u4E0A\u6E38 ent schema\uFF08ent/schema/davaccount.go\u3001passkey.go\uFF09\u3002\r
--- \u6CE8\u610F\uFF1Ascripts/migrate.mjs \u6309\u5206\u53F7\u6734\u7D20\u5207\u5206\u8BED\u53E5\uFF0C\u4E14\u4F1A\u5265\u6389 \`--\` \u4E4B\u540E\u7684\u5185\u5BB9\u3002\r
--- =============================================================================\r
-\r
--- ---------------------------------------------------------------------------\r
--- WebDAV \u8D26\u53F7\u3002options \u662F boolset \u7684 bytea\uFF08bit 0=readonly 1=proxy 2=disable_sys_files\uFF0C\r
--- \u4E0E\u4E0A\u6E38 inventory/types \u7684 DavAccountReadOnly/Proxy/DisableSysFiles \u987A\u5E8F\u4E00\u81F4\uFF09\u3002\r
--- owner_id + password \u552F\u4E00 \u2014\u2014 \u4E0A\u6E38\u7528\u8FD9\u4E2A\u7D22\u5F15\u505A Basic Auth \u67E5\u8BE2\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS dav_accounts (\r
-    id          SERIAL PRIMARY KEY,\r
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at  TIMESTAMPTZ,\r
-    name        TEXT NOT NULL,\r
-    uri         TEXT NOT NULL,\r
-    password    TEXT NOT NULL,\r
-    options     BYTEA NOT NULL,\r
-    props       JSONB NOT NULL DEFAULT '{}'::jsonb,\r
-    owner_id    INTEGER NOT NULL\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS davaccount_owner_id_password ON dav_accounts (owner_id, password);\r
-CREATE INDEX IF NOT EXISTS davaccount_owner_id ON dav_accounts (owner_id);\r
-\r
--- ---------------------------------------------------------------------------\r
--- WebAuthn / Passkey \u51ED\u636E\u3002credential \u5B58 JSON\uFF08webauthn.Credential \u7684\u5E8F\u5217\u5316\u5F62\u6001\uFF1A\r
--- id / public_key(\u57FA64) / attestation_type / transport / flags \u7B49\uFF09\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS passkeys (\r
-    id            SERIAL PRIMARY KEY,\r
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at    TIMESTAMPTZ,\r
-    user_id       INTEGER NOT NULL,\r
-    credential_id TEXT NOT NULL,\r
-    name          TEXT NOT NULL,\r
-    credential    JSONB NOT NULL,\r
-    used_at       TIMESTAMPTZ\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS passkey_user_id_credential_id ON passkeys (user_id, credential_id);\r
-CREATE INDEX IF NOT EXISTS passkey_credential_id ON passkeys (credential_id);\r
-`;var D_=`-- =============================================================================\r
--- 0004 \u2014\u2014 \u8282\u70B9\uFF08admin/node\uFF09\u8865\u9F50\r
---\r
--- \u4E0A\u6E38 ent/schema/node.go\uFF1Astatus \u662F active/suspended \u4E8C\u503C\u679A\u4E3E\u3001settings \u662F\r
--- NodeSetting JSON\uFF08aria2 / qBittorrent \u4E0B\u8F7D\u5668\u914D\u7F6E\uFF09\u30020002 \u5EFA\u8868\u65F6 status\r
--- \u9ED8\u8BA4\u503C\u5199\u6210\u4E86 'inactive'\uFF0C\u8FD9\u91CC\u5BF9\u9F50\uFF0C\u5E76\u8865\u4E0A\u7F3A\u5931\u7684 settings \u5217\u3002\r
--- =============================================================================\r
-\r
-ALTER TABLE nodes DROP COLUMN IF EXISTS status;\r
-ALTER TABLE nodes ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';\r
-\r
-ALTER TABLE nodes ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb;\r
-`;var L_=`-- 0005: \u652F\u4ED8\u4F53\u7CFB\uFF08\u8FB9\u7F18\u7248\u81EA\u5EFA Pro \u529F\u80FD\uFF09\r
--- \u5BF9\u5E94\u524D\u7AEF\u589E\u503C\u670D\u52A1\uFF1A\u5546\u5E97 / \u8BA2\u5355 / \u793C\u54C1\u5361 / \u652F\u4ED8\u63D0\u4F9B\u5546\uFF08\u6613\u652F\u4ED8\u534F\u8BAE\uFF09\u3002\r
--- \u4E0A\u6E38\u95ED\u6E90 Pro \u7684\u8868\u7ED3\u6784\u4E0D\u53EF\u5F97\uFF0C\u8FD9\u91CC\u6309\u524D\u7AEF\u6D88\u8D39\u7684\u5F62\u72B6\u81EA\u5EFA\uFF1A\r
---   orders     \u2014\u2014 \u652F\u4ED8\u8BA2\u5355\uFF08\u4E0B\u5355 \u2192 \u652F\u4ED8\u56DE\u8C03 \u2192 \u5C65\u884C\uFF09\r
---   gift_codes \u2014\u2014 \u793C\u54C1\u5361\uFF08\u7BA1\u7406\u5458\u6279\u91CF\u751F\u6210\uFF0C\u7528\u6237\u5151\u6362\uFF0C\u8D70\u540C\u4E00\u5C65\u884C\u903B\u8F91\uFF09\r
-\r
-CREATE TABLE IF NOT EXISTS orders (\r
-    id                SERIAL PRIMARY KEY,\r
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at        TIMESTAMPTZ,\r
-    user_id           INTEGER     NOT NULL,\r
-    order_no          TEXT        NOT NULL,\r
-    product_type      TEXT        NOT NULL CHECK (product_type IN ('storage', 'group', 'credit')),\r
-    -- \u4E0B\u5355\u65F6\u7684\u5546\u54C1\u5FEB\u7167\uFF08\u5546\u54C1\u968F\u540E\u53EF\u80FD\u88AB\u6539/\u5220\uFF0C\u5C65\u884C\u4EE5\u5FEB\u7167\u4E3A\u51C6\uFF09\r
-    product_snapshot  JSONB       NOT NULL DEFAULT '{}'::jsonb,\r
-    amount            BIGINT      NOT NULL DEFAULT 0,  -- \u5355\u4F4D\uFF1A\u5206\r
-    status            TEXT        NOT NULL DEFAULT 'pending'\r
-                      CHECK (status IN ('pending', 'paid', 'fulfilled', 'failed', 'canceled')),\r
-    provider          TEXT        NOT NULL DEFAULT '',\r
-    provider_trade_no TEXT,\r
-    paid_at           TIMESTAMPTZ,\r
-    fulfilled_at      TIMESTAMPTZ,\r
-    error             TEXT\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS orders_order_no ON orders (order_no);\r
-CREATE INDEX IF NOT EXISTS orders_user_id ON orders (user_id);\r
-\r
-CREATE TABLE IF NOT EXISTS gift_codes (\r
-    id              SERIAL PRIMARY KEY,\r
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at      TIMESTAMPTZ,\r
-    code            TEXT        NOT NULL,\r
-    product_type    TEXT        NOT NULL CHECK (product_type IN ('storage', 'group', 'credit')),\r
-    product_payload JSONB       NOT NULL DEFAULT '{}'::jsonb,\r
-    batch           TEXT,\r
-    used_by         INTEGER,\r
-    used_at         TIMESTAMPTZ\r
-);\r
-\r
-CREATE UNIQUE INDEX IF NOT EXISTS gift_codes_code ON gift_codes (code);\r
-CREATE INDEX IF NOT EXISTS gift_codes_batch ON gift_codes (batch);\r
-`;var O_=`-- 0006: \u5BA1\u8BA1\u65E5\u5FD7\uFF08\u8FB9\u7F18\u7248\u81EA\u5EFA Pro \u529F\u80FD\uFF09\r
--- \u5BF9\u5E94\u524D\u7AEF\u7BA1\u7406\u8BBE\u7F6E\u300C\u4E8B\u4EF6\u300D\u6807\u7B7E\uFF08Event/Events.tsx\uFF09\u7684 62 \u79CD AuditLogType\uFF080-61\uFF09\u3002\r
--- \u4E0A\u6E38\u95ED\u6E90 Pro \u7684\u8868\u7ED3\u6784\u4E0D\u53EF\u5F97\uFF0C\u8FD9\u91CC\u6309\u81EA\u5EFA\u9700\u8981\u8BBE\u8BA1\uFF1A\r
---   audit_logs \u2014\u2014 \u5BA1\u8BA1\u4E8B\u4EF6\u6D41\u6C34\uFF08type \u4E3A\u524D\u7AEF AuditLogType \u679A\u4E3E\u6570\u503C\uFF09\r
---\r
--- \u5199\u5165\u8D70 logAudit()\uFF08services/audit.ts\uFF09\uFF0C\u6309 audit_log_events \u8BBE\u7F6E\u5F00\u5173\u8FC7\u6EE4\uFF0C\r
--- \u7ECF waitUntil \u5F02\u6B65\u63D2\u5165\uFF0C\u4E0D\u963B\u585E\u8BF7\u6C42\u8DEF\u5F84\u3002\r
-\r
-CREATE TABLE IF NOT EXISTS audit_logs (\r
-    id         BIGSERIAL   PRIMARY KEY,\r
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    user_id    INTEGER,\r
-    type       INTEGER     NOT NULL,\r
-    meta       JSONB       NOT NULL DEFAULT '{}'::jsonb\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS audit_logs_created_at ON audit_logs (created_at DESC);\r
-CREATE INDEX IF NOT EXISTS audit_logs_type ON audit_logs (type);\r
-CREATE INDEX IF NOT EXISTS audit_logs_user_id ON audit_logs (user_id);\r
-`;var $_=`-- ---------------------------------------------------------------------------\r
--- \u4ED8\u8D39\u5206\u4EAB\uFF08edge \u81EA\u5EFA Pro \u529F\u80FD\uFF09\r
---   shares.score            INT  \u5206\u4EAB\u4EF7\u683C\uFF08\u79EF\u5206\uFF09\uFF0C0 \u8868\u793A\u514D\u8D39\u5206\u4EAB\r
---   share_purchases         \u8D2D\u4E70\u8BB0\u5F55\uFF08\u8C01\u4E3A\u54EA\u4E2A\u5206\u4EAB\u4ED8\u4E86\u591A\u5C11\uFF09\uFF0C(share_id,user_id) \u552F\u4E00\r
--- ---------------------------------------------------------------------------\r
-\r
-ALTER TABLE shares ADD COLUMN IF NOT EXISTS score INTEGER NOT NULL DEFAULT 0;\r
-\r
-CREATE TABLE IF NOT EXISTS share_purchases (\r
-    id          SERIAL PRIMARY KEY,\r
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    share_id    INTEGER NOT NULL,\r
-    user_id     INTEGER NOT NULL,\r
-    amount      INTEGER NOT NULL DEFAULT 0,\r
-    CONSTRAINT share_purchases_unique UNIQUE (share_id, user_id)\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS share_purchases_share ON share_purchases (share_id);\r
-CREATE INDEX IF NOT EXISTS share_purchases_user ON share_purchases (user_id);\r
-`;var F_=`-- ---------------------------------------------------------------------------\r
--- OIDC \u7B2C\u4E09\u65B9\u767B\u5F55\u7ED1\u5B9A\uFF08edge \u81EA\u5EFA\u5B9E\u73B0\uFF09\u3002\r
---\r
--- \u5B98\u65B9\u5F00\u6E90\u7248\u628A\u300C\u7B2C\u4E09\u65B9\u767B\u5F55\u300D\u505A\u6210\u7EAF Pro \u88C5\u9970\u4F4D\uFF1A\u524D\u7AEF\u4E09\u4E2A checkbox \u5168\u90E8\r
--- checked={false} \u4E14\u65E0 onChange\uFF0C\u540E\u7AEF\u4E5F\u6CA1\u6709\u6D88\u8D39\u8005\u4FA7\u6D41\u7A0B\u3002\u8FB9\u7F18\u7248\u8865\u9F50\u4E86\r
--- \u901A\u7528 OIDC \u6388\u6743\u7801\u767B\u5F55\uFF08service/oidc.ts\uFF09\uFF0C\u672C\u8868\u8BB0\u5F55\u5916\u90E8\u8EAB\u4EFD\u4E0E\u672C\u5730\u8D26\u53F7\u7684\u7ED1\u5B9A\u3002\r
---\r
--- \u72EC\u7ACB\u6210\u8868\uFF08\u800C\u4E0D\u662F\u5728 users \u4E0A\u52A0\u5217\uFF09\u7684\u7406\u7531\uFF1A\u4E00\u4E2A\u7528\u6237\u53EF\u7ED1\u5B9A\u591A\u4E2A IdP\uFF0C\r
--- \u540E\u7EED\u63A5\u5165\u66F4\u591A provider\uFF08QQ / Logto / Keycloak\u2026\uFF09\u65E0\u9700\u518D\u6539\u8868\u7ED3\u6784\u3002\r
---   subject = IdP \u4FA7\u7A33\u5B9A\u7528\u6237\u6807\u8BC6\uFF08OIDC \u7684 sub\uFF09\r
---   issuer  = IdP \u7684 issuer\uFF08\u540C\u4E00 subject \u5728\u4E0D\u540C IdP \u4E0B\u542B\u4E49\u4E0D\u540C\uFF0C\u6545\u9700\u4E00\u8D77\u552F\u4E00\uFF09\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS user_oidc_bindings (\r
-    id          SERIAL PRIMARY KEY,\r
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    user_id     INTEGER     NOT NULL,\r
-    issuer      TEXT        NOT NULL,\r
-    subject     TEXT        NOT NULL,\r
-    email       TEXT,\r
-    last_login  TIMESTAMPTZ\r
-);\r
-\r
--- \u540C\u4E00 IdP \u4E0B\u540C\u4E00 subject \u53EA\u80FD\u7ED1\u5B9A\u4E00\u4E2A\u672C\u5730\u8D26\u53F7\r
-CREATE UNIQUE INDEX IF NOT EXISTS user_oidc_bindings_issuer_subject\r
-    ON user_oidc_bindings (issuer, subject);\r
-\r
-CREATE INDEX IF NOT EXISTS user_oidc_bindings_user\r
-    ON user_oidc_bindings (user_id);\r
-`;var M_=`-- ---------------------------------------------------------------------------\r
--- \u8865\u9F50 group_storage_policies \u5230\u8FC1\u79FB\u5C42\r
---\r
--- \u8FD9\u5F20\u8868\u539F\u5148**\u53EA\u5728 src/db/provision.ts \u91CC\u7528 CREATE TABLE IF NOT EXISTS \u5EFA**\r
--- \uFF08\u81EA\u4E3E\u65F6\u968F seedSystemData \u4E00\u8D77\u6267\u884C\uFF09\uFF0Cmigrations/*.sql \u91CC\u6839\u672C\u6CA1\u6709\u5B83\u3002\r
---\r
--- \u540E\u679C\uFF08\u771F\u5B9E\u6545\u969C\uFF09\uFF1A\`scripts/db-sync.mjs\` \u7684\u300C\u5907\u5E93\u5EFA\u8868\u300D\u5982\u679C\u53EA\u6309\r
--- migrations/*.sql \u5EFA\u5E93\uFF0C\u5907\u5E93\u5C31\u4F1A**\u7F3A\u8FD9\u4E00\u5F20\u8868** \u2192 \u8BE5\u8868\u7684\u6570\u636E\u6C38\u8FDC\u540C\u6B65\u4E0D\u8FC7\u53BB\r
--- \uFF08\u751A\u81F3\u6574\u4E2A\u5907\u5E93\u540C\u6B65\u88AB\u5224\u4E3A\u7ED3\u6784\u4E0D\u5B8C\u6574\uFF09\u3002\u8FD9\u6B63\u662F\u300C\u914D\u4E86 5 \u4E2A\u5E93\u5374\u53EA\u6709\u4E00\u4E2A\u80FD\u771F\u6B63\r
--- \u7528\u4E0A\u300D\u7684\u9690\u85CF\u539F\u56E0\u4E4B\u4E00\u3002\r
---\r
--- \u8FC1\u5230\u8FD9\u91CC\u4E4B\u540E\uFF0Cmigrations/*.sql \u6210\u4E3A\u5EFA\u8868\u7684**\u552F\u4E00\u4E8B\u5B9E\u6765\u6E90**\uFF1B\r
--- provision.ts \u91CC\u90A3\u6BB5\u4FDD\u7559\uFF08\u5E42\u7B49\uFF09\uFF0C\u4F5C\u4E3A\u5B58\u91CF\u5E93\u7684\u515C\u5E95\uFF0C\u4E0D\u4F1A\u4E0E\u65B0\u8FC1\u79FB\u51B2\u7A81\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS group_storage_policies (\r
-    group_id  INTEGER NOT NULL,\r
-    policy_id INTEGER NOT NULL,\r
-    PRIMARY KEY (group_id, policy_id)\r
-);\r
-\r
--- \u5E42\u7B49\u56DE\u586B\uFF1A\u628A groups.storage_policy_id \u8FD9\u4E2A\u65E7\u7684\u5355\u7B56\u7565\u5B57\u6BB5\u704C\u8FDB\u5173\u8054\u8868\u3002\r
--- \u4E0A\u6E38 GetByGroup\uFF08inventory/policy.go:145\uFF09\u5047\u5B9A\u6BCF\u4E2A\u7EC4\u90FD\u6709\u7B56\u7565\uFF0C\r
--- \u7EC4\u53EA\u7ED1\u4E00\u4E2A\u7B56\u7565\u65F6\u8FD9\u91CC\u5C31\u662F\u90A3\u4E00\u6761\u3002\r
-INSERT INTO group_storage_policies (group_id, policy_id)\r
-SELECT id, storage_policy_id FROM groups\r
-WHERE storage_policy_id IS NOT NULL\r
-ON CONFLICT (group_id, policy_id) DO NOTHING;\r
-`;var q_=`-- ---------------------------------------------------------------------------\r
--- \u5F52\u6863\u8868\uFF08archive_entries\uFF09\r
---\r
--- ## \u4E3A\u4EC0\u4E48\u9700\u8981\u5B83\r
---\r
--- \u7528\u6237\u73B0\u6709 5 \u4E2A Neon\u3002\u300C5 \u4E2A\u5E93\u5168\u90E8\u5F53\u4E3B\u5E93\u7528\u300D\u5728\u67B6\u6784\u4E0A\u4E0D\u6210\u7ACB\uFF08Neon \u514D\u8D39\u6863\r
--- \u6CA1\u6709\u591A\u4E3B\u590D\u5236\uFF0C\u505A\u6210 5 \u5199\u5FC5\u7136\u5206\u88C2\uFF09\u3002\u6240\u4EE5\u7ED9\u5907\u5E93\u4E00\u4E2A**\u5929\u7136\u4E0D\u4F1A\u51B2\u7A81\u7684\r
--- \u7528\u9014**\uFF1A\u5B58\u5F52\u6863\u8868\u3002\u5F52\u6863\u662F\u300C\u53EA\u589E\u4E0D\u6539\u300D\u7684\uFF0C\u591A\u4E2A\u5E93\u5404\u5B58\u4E00\u4EFD\u4E5F\u4E0D\u4F1A\u4E92\u76F8\u77DB\u76FE\u3002\r
---\r
--- ## \u53EA\u589E\u4E0D\u6539 = \u6570\u636E\u8868\u63D2\u5165\u540E\u4E0D\u8BB8\u4FEE\u6539/\u5220\u9664\r
---\r
--- \u8FD9\u662F\u672C\u6587\u4EF6\u7684\u91CD\u70B9\u3002\u5F52\u6863\u7684\u4EF7\u503C\u5168\u5728\u300C\u53EF\u4FE1\u300D\u4E8C\u5B57 \u2014\u2014 \u5982\u679C\u80FD\u88AB\u9759\u9ED8\u6539\u5199\uFF0C\r
--- \u5B83\u5C31\u4E0D\u80FD\u7528\u6765\u6838\u5BF9\u300C\u5F53\u65F6\u5230\u5E95\u662F\u4EC0\u4E48\u503C\u300D\u3002\r
---\r
--- SQL \u5C42\u7528\u4E09\u79CD\u624B\u6BB5\u9501\u6B7B\uFF1A\r
---   1. **\u4E3B\u952E \`entry_id\`**\uFF08\u5E94\u7528\u751F\u6210\u7684 UUID\uFF09\uFF1A\u91CD\u590D\u63D2\u5165\u540C\u4E00 id \u76F4\u63A5\u51B2\u7A81\uFF0C\r
---      \u4E0D\u4F1A\u8986\u76D6\u5DF2\u6709\u5F52\u6863\u3002\r
---   2. **\u552F\u4E00\u7EA6\u675F \`(kind, object_id, at)\`**\uFF1A\u540C\u4E00\u5BF9\u8C61\u540C\u4E00\u65F6\u523B\u53EA\u80FD\u6709\u4E00\u6761\uFF0C\r
---      \u9632\u6B62\u91CD\u653E\u4EA7\u751F\u91CD\u590D\u3002\r
---   3. **\u89E6\u53D1\u5668 \`BEFORE UPDATE OR DELETE\` \u76F4\u63A5 RAISE**\uFF1A\u4EFB\u4F55 UPDATE/DELETE\r
---      \u90FD\u88AB\u6570\u636E\u5E93\u62D2\u7EDD\u3002\u8FD9\u662F\u771F\u6B63\u7684\u300C\u53EA\u589E\u4E0D\u6539\u300D\u2014\u2014 \u5E94\u7528\u5C42\u6F0F\u5199\u68C0\u67E5\u4E5F\u6539\u4E0D\u52A8\u3002\r
---\r
--- \u9700\u8981\u5220\u6570\u636E\u65F6\u7684\u505A\u6CD5\uFF1A\u6574\u8868 \`TRUNCATE\`\uFF08\u8FD0\u7EF4\u64CD\u4F5C\uFF0C\u4E0D\u8D70\u5E94\u7528\uFF09\u3002\r
--- \u4E0D\u7ED9\u5E94\u7528\u7559\u4EFB\u4F55\u300C\u6084\u6084\u6539\u4E00\u6761\u300D\u7684\u5165\u53E3\u3002\r
--- ---------------------------------------------------------------------------\r
-\r
-CREATE TABLE IF NOT EXISTS archive_entries (\r
-    -- \u5E94\u7528\u751F\u6210\u7684 UUID\uFF08\u4E0D\u662F\u81EA\u589E\uFF09\uFF1A\u8DE8\u5E93\u5408\u5E76\u65F6\u4E0D\u4F1A\u649E id\u3002\r
-    entry_id     TEXT        PRIMARY KEY,\r
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    -- \u5F52\u6863\u5BF9\u8C61\u7684\u7C7B\u522B\u4E0E\u6807\u8BC6\uFF0C\u5982 ('settings','global') / ('user','42')\r
-    kind         TEXT        NOT NULL,\r
-    object_id    TEXT        NOT NULL,\r
-    -- **\u4E1A\u52A1\u53D1\u751F\u65F6\u95F4**\uFF08\u4E0D\u662F\u5165\u5E93\u65F6\u95F4\uFF09\u2014\u2014 \u56DE\u653E\u5386\u53F2\u65F6\u8981\u4EE5\u5B83\u4E3A\u51C6\u3002\r
-    at           TIMESTAMPTZ NOT NULL,\r
-    -- \u88AB\u5F52\u6863\u7684\u503C\uFF08\u65E7\u503C\uFF09\u3002jsonb \u4EE5\u4FBF\u5C06\u6765\u6309\u5B57\u6BB5\u67E5\u8BE2\u3002\r
-    value        JSONB       NOT NULL,\r
-    -- \u8C01\u89E6\u53D1\u7684\uFF08\u7528\u6237 id / 'system' / 'cron'\uFF09\r
-    actor        TEXT,\r
-    note         TEXT,\r
-    -- \u6570\u636E\u6765\u6E90\u5E93\u6807\u8BC6\uFF081=\u4E3B\u5E93\uFF0C2..=\u5907\u5E93\uFF09\uFF0C\u6392\u67E5\u300C\u8FD9\u6761\u662F\u54EA\u6765\u7684\u300D\u7528\r
-    source       INTEGER     NOT NULL DEFAULT 1\r
-);\r
-\r
--- \u540C\u4E00\u5BF9\u8C61\u540C\u4E00\u65F6\u523B\u53EA\u80FD\u6709\u4E00\u6761 \u2014\u2014 \u9632\u91CD\u653E\u3002\r
-CREATE UNIQUE INDEX IF NOT EXISTS archive_entries_kind_object_at\r
-    ON archive_entries (kind, object_id, at);\r
-\r
--- \u67E5\u67D0\u5BF9\u8C61\u7684\u5386\u53F2\uFF08\u6700\u65B0\u5728\u524D\uFF09\r
-CREATE INDEX IF NOT EXISTS archive_entries_lookup\r
-    ON archive_entries (kind, object_id, at DESC);\r
-\r
--- ---------------------------------------------------------------------------\r
--- \u53EA\u589E\u4E0D\u6539\uFF1A\u6570\u636E\u5E93\u5C42\u62D2\u7EDD UPDATE / DELETE\r
---\r
--- \u7528\u89E6\u53D1\u5668\u800C\u4E0D\u662F\u300C\u9760\u5E94\u7528\u5C42\u81EA\u89C9\u300D\u2014\u2014\u5E94\u7528\u5C42\u6709 30+ \u5904\u5199\u8DEF\u5F84\uFF0C\u9760\u81EA\u89C9\u5FC5\u7136\u6F0F\u3002\r
--- \u8FD9\u91CC\u76F4\u63A5\u8BA9\u6570\u636E\u5E93\u6210\u4E3A\u6700\u540E\u4E00\u9053\u9632\u7EBF\uFF1A\u4EFB\u4F55\u8BD5\u56FE\u4FEE\u6539\u5F52\u6863\u7684\u8BED\u53E5\u90FD\u4F1A\u629B\u5F02\u5E38\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE OR REPLACE FUNCTION archive_entries_immutable()\r
-RETURNS TRIGGER AS $$\r
-BEGIN\r
-    RAISE EXCEPTION 'archive_entries is append-only: % is not allowed', TG_OP\r
-        USING HINT = '\u5F52\u6863\u4E0D\u53EF\u4FEE\u6539/\u5220\u9664\u3002\u786E\u9700\u6E05\u7406\u8BF7\u6574\u8868 TRUNCATE\uFF08\u8FD0\u7EF4\u64CD\u4F5C\uFF09\u3002';\r
-END;\r
-$$ LANGUAGE plpgsql;\r
-\r
-DROP TRIGGER IF EXISTS archive_entries_no_update ON archive_entries;\r
-CREATE TRIGGER archive_entries_no_update\r
-    BEFORE UPDATE ON archive_entries\r
-    FOR EACH ROW EXECUTE FUNCTION archive_entries_immutable();\r
-\r
-DROP TRIGGER IF EXISTS archive_entries_no_delete ON archive_entries;\r
-CREATE TRIGGER archive_entries_no_delete\r
-    BEFORE DELETE ON archive_entries\r
-    FOR EACH ROW EXECUTE FUNCTION archive_entries_immutable();\r
-`;var B_=`-- 0011: \u5B58\u91CF\u90E8\u7F72\u7684 file_viewers \u662F\u81EA\u4E3E\u64AD\u79CD\u7684\u7A7A\u6570\u7EC4\uFF0C\u524D\u7AEF\u300C\u6253\u5F00\u65B9\u5F0F\u300D\u83DC\u5355\r
--- \u6574\u4E2A\u4E3A\u7A7A\uFF08\u89C6\u9891/PPT/\u56FE\u7247\u7B49\u5168\u90E8\u53EA\u80FD\u4E0B\u8F7D\uFF09\u3002\u628A\u5B83\u56DE\u586B\u4E3A\u4E0E\u4E0A\u6E38\r
--- inventory/setting.go defaultFileViewers \u4E00\u81F4\u7684 13 \u67E5\u770B\u5668\u9ED8\u8BA4\u96C6\u3002\r
--- \u53EA\u8986\u76D6\u6070\u597D\u4E3A '[]' \u7684\u884C\uFF1A\u7BA1\u7406\u5458\u81EA\u5B9A\u4E49\u8FC7\u7684\u914D\u7F6E\u4E0D\u52A8\uFF1B\u65B0\u90E8\u7F72\u7531\r
--- defaults.ts \u7684 DEFAULT_SETTINGS.file_viewers \u64AD\u79CD\u540C\u4E00\u5957\uFF0C\u672C\u8BED\u53E5\u81EA\u7136\u7A7A\u8DD1\u3002\r
-UPDATE settings SET value = '[{"viewers":[{"id":"music","type":"builtin","display_name":"fileManager.musicPlayer","exts":["mp3","ogg","wav","flac","m4a"]},{"id":"epub","type":"builtin","display_name":"fileManager.epubViewer","exts":["epub"]},{"id":"googledocs","type":"custom","display_name":"fileManager.googledocs","icon":"/static/img/viewers/gdrive.png","url":"https://docs.google.com/gview?url={$src}&embedded=true","exts":["jpeg","png","gif","tiff","bmp","webm","mpeg4","3gpp","mov","avi","mpegps","wmv","flv","txt","css","html","php","c","cpp","h","hpp","js","doc","docx","xls","xlsx","ppt","pptx","pdf","pages","ai","psd","tiff","dxf","svg","eps","ps","ttf","xps"],"max_size":26214400},{"id":"m365online","type":"custom","display_name":"fileManager.m365viewer","icon":"/static/img/viewers/m365.svg","url":"https://view.officeapps.live.com/op/view.aspx?src={$src}","exts":["doc","docx","docm","dotm","dotx","xlsx","xlsb","xls","xlsm","pptx","ppsx","ppt","pps","pptm","potm","ppam","potx","ppsm"],"max_size":10485760},{"id":"pdf","type":"builtin","display_name":"fileManager.pdfViewer","exts":["pdf"]},{"id":"video","type":"builtin","icon":"/static/img/viewers/artplayer.png","display_name":"Artplayer","exts":["mp4","mkv","webm","avi","mov","m3u8","flv"]},{"id":"markdown","type":"builtin","display_name":"fileManager.markdownEditor","exts":["md"],"templates":[{"ext":"md","display_name":"Markdown"}]},{"id":"drawio","type":"builtin","icon":"/static/img/viewers/drawio.svg","display_name":"draw.io","exts":["drawio","dwb"],"props":{"host":"https://embed.diagrams.net"},"templates":[{"ext":"drawio","display_name":"fileManager.diagram"},{"ext":"dwb","display_name":"fileManager.whiteboard"}]},{"id":"image","type":"builtin","display_name":"fileManager.imageViewer","exts":["bmp","png","gif","jpg","jpeg","svg","webp","heic","heif"]},{"id":"monaco","type":"builtin","icon":"/static/img/viewers/monaco.svg","display_name":"fileManager.monacoEditor","exts":["md","txt","json","php","py","bat","c","h","cpp","hpp","cs","css","dockerfile","go","html","htm","ini","java","js","jsx","less","lua","sh","sql","xml","yaml"],"templates":[{"ext":"txt","display_name":"fileManager.text"}]},{"id":"photopea","type":"builtin","icon":"/static/img/viewers/photopea.png","display_name":"Photopea","exts":["psd","ai","indd","xcf","xd","fig","kri","clip","pxd","pxz","cdr","ufo","afphoyo","svg","esp","pdf","pdn","wmf","emf","png","jpg","jpeg","gif","webp","ico","icns","bmp","avif","heic","jxl","ppm","pgm","pbm","tiff","dds","iff","anim","tga","dng","nef","cr2","cr3","arw","rw2","raf","orf","gpr","3fr","fff"]},{"id":"excalidraw","type":"builtin","icon":"/static/img/viewers/excalidraw.svg","display_name":"Excalidraw","exts":["excalidraw"],"templates":[{"ext":"excalidraw","display_name":"Excalidraw"}]},{"id":"archive","type":"builtin","display_name":"fileManager.archivePreview","exts":["zip","7z"],"required_group_permission":[5]}]}]' WHERE name = 'file_viewers' AND value = '[]';\r
-`;var H_=`-- 0012: file_viewers \u810F\u6570\u636E\u515C\u5E95\u56DE\u586B\u30020011 \u53EA\u5339\u914D value='[]'\uFF0C\u4F46\u5B58\u91CF\u5E93\u91CC\r
--- \u7684\u771F\u5B9E\u503C\u662F\u300C\u975E\u7A7A\u3001\u89E3\u6790\u4E3A\u7A7A\u96C6\u3001\u4F46\u4E0D\u5B8C\u5168\u7B49\u4E8E '[]'\u300D\u7684\u5F62\u6001\uFF08\u5982 '[ ]' /\r
--- 'null' / '[{"viewers":[]}]'\uFF09\uFF0C\u6070\u597D\u8EB2\u8FC7 0011 \u53C8\u538B\u4F4F defaults \u5C42\uFF0C\r
--- \u7EBF\u4E0A\u300C\u6253\u5F00\u65B9\u5F0F\u300D\u6301\u7EED\u4E3A\u7A7A\u3002\u672C\u8FC1\u79FB\u628A\u6240\u6709\u5DF2\u77E5\u810F\u5F62\u6001\u7EDF\u4E00\u56DE\u586B\u4E3A\u9ED8\u8BA4\u96C6\uFF1B\r
--- \u7BA1\u7406\u5458\u81EA\u5B9A\u4E49\u8FC7\u7684\u975E\u7A7A\u914D\u7F6E\uFF08\u542B\u5408\u6CD5\u7A7A\u7EC4\u4F46\u53E6\u6709\u975E\u7A7A\u7EC4\u7684\u914D\u7F6E\uFF09\u4E0D\u53D7\u5F71\u54CD\u3002\r
--- \u8BFB\u53D6\u5C42\u53E6\u6709 parseFileViewers \u515C\u5E95\uFF08settings/fileViewers.ts\uFF09\uFF0C\u53CC\u4FDD\u9669\u3002\r
-UPDATE settings SET value = '[{"viewers":[{"id":"music","type":"builtin","display_name":"fileManager.musicPlayer","exts":["mp3","ogg","wav","flac","m4a"]},{"id":"epub","type":"builtin","display_name":"fileManager.epubViewer","exts":["epub"]},{"id":"googledocs","type":"custom","display_name":"fileManager.googledocs","icon":"/static/img/viewers/gdrive.png","url":"https://docs.google.com/gview?url={$src}&embedded=true","exts":["jpeg","png","gif","tiff","bmp","webm","mpeg4","3gpp","mov","avi","mpegps","wmv","flv","txt","css","html","php","c","cpp","h","hpp","js","doc","docx","xls","xlsx","ppt","pptx","pdf","pages","ai","psd","tiff","dxf","svg","eps","ps","ttf","xps"],"max_size":26214400},{"id":"m365online","type":"custom","display_name":"fileManager.m365viewer","icon":"/static/img/viewers/m365.svg","url":"https://view.officeapps.live.com/op/view.aspx?src={$src}","exts":["doc","docx","docm","dotm","dotx","xlsx","xlsb","xls","xlsm","pptx","ppsx","ppt","pps","pptm","potm","ppam","potx","ppsm"],"max_size":10485760},{"id":"pdf","type":"builtin","display_name":"fileManager.pdfViewer","exts":["pdf"]},{"id":"video","type":"builtin","icon":"/static/img/viewers/artplayer.png","display_name":"Artplayer","exts":["mp4","mkv","webm","avi","mov","m3u8","flv"]},{"id":"markdown","type":"builtin","display_name":"fileManager.markdownEditor","exts":["md"],"templates":[{"ext":"md","display_name":"Markdown"}]},{"id":"drawio","type":"builtin","icon":"/static/img/viewers/drawio.svg","display_name":"draw.io","exts":["drawio","dwb"],"props":{"host":"https://embed.diagrams.net"},"templates":[{"ext":"drawio","display_name":"fileManager.diagram"},{"ext":"dwb","display_name":"fileManager.whiteboard"}]},{"id":"image","type":"builtin","display_name":"fileManager.imageViewer","exts":["bmp","png","gif","jpg","jpeg","svg","webp","heic","heif"]},{"id":"monaco","type":"builtin","icon":"/static/img/viewers/monaco.svg","display_name":"fileManager.monacoEditor","exts":["md","txt","json","php","py","bat","c","h","cpp","hpp","cs","css","dockerfile","go","html","htm","ini","java","js","jsx","less","lua","sh","sql","xml","yaml"],"templates":[{"ext":"txt","display_name":"fileManager.text"}]},{"id":"photopea","type":"builtin","icon":"/static/img/viewers/photopea.png","display_name":"Photopea","exts":["psd","ai","indd","xcf","xd","fig","kri","clip","pxd","pxz","cdr","ufo","afphoyo","svg","esp","pdf","pdn","wmf","emf","png","jpg","jpeg","gif","webp","ico","icns","bmp","avif","heic","jxl","ppm","pgm","pbm","tiff","dds","iff","anim","tga","dng","nef","cr2","cr3","arw","rw2","raf","orf","gpr","3fr","fff"]},{"id":"excalidraw","type":"builtin","icon":"/static/img/viewers/excalidraw.svg","display_name":"Excalidraw","exts":["excalidraw"],"templates":[{"ext":"excalidraw","display_name":"Excalidraw"}]},{"id":"archive","type":"builtin","display_name":"fileManager.archivePreview","exts":["zip","7z"],"required_group_permission":[5]}]}]'\r
-WHERE name = 'file_viewers'\r
-  AND (\r
-    value IS NULL\r
-    OR btrim(value) IN ('', '[]', '[ ]', 'null', '0', 'false', 'undefined')\r
-    OR btrim(value) = '{"viewers":[]}'\r
-    OR btrim(value) = '[{"viewers":[]}]'\r
-    OR btrim(value) = '[{"viewers":[]},{}]'\r
-    OR btrim(value) = '[{},{"viewers":[]}]'\r
-  );\r
-`;var z_=`-- \u7AD9\u70B9\u7EA7\u4E00\u6B21\u6027\u72B6\u6001\uFF08\u539F\u5B50\u62A2\u5360\uFF09\u3002\r
---\r
--- \u76EE\u524D\u53EA\u6709\u4E00\u4E2A\u7528\u9014\uFF1A\u300C\u7B2C\u4E00\u4E2A\u7BA1\u7406\u5458\u540D\u989D\u300D\u3002\u539F\u6765\u7684\u505A\u6CD5\u662F\r
---   SELECT isEmpty() \u2192 \u662F\u7A7A\u7684\u5C31 group_id = 1\r
--- \u4E24\u6761\u8BED\u53E5\u4E4B\u95F4\u6CA1\u6709\u539F\u5B50\u6027\uFF1A\u4E24\u4E2A\u5E76\u53D1\u6CE8\u518C\u90FD\u4F1A\u770B\u5230\u300C\u7AD9\u70B9\u4E3A\u7A7A\u300D\uFF0C\u4E8E\u662F\u4EA7\u751F\u4E24\u4E2A\u7BA1\u7406\u5458\u3002\r
--- \u7528\u4E00\u4E2A\u5E26\u4E3B\u952E\u7684\u5C0F\u8868\u505A\u6805\u680F\uFF0C\`INSERT ... ON CONFLICT DO NOTHING RETURNING\` \u5929\u7136\u539F\u5B50\uFF0C\r
--- \u8C01\u62A2\u5230\u8C01\u5F53\u7BA1\u7406\u5458\u3002\r
-CREATE TABLE IF NOT EXISTS site_state (\r
-  name       TEXT PRIMARY KEY,\r
-  value      TEXT NOT NULL DEFAULT '',\r
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()\r
-);\r
-`;var j_=`-- \u9650\u901F\u8BA1\u6570\uFF08\u767B\u5F55 / 2FA / \u6CE8\u518C / \u627E\u56DE\u5BC6\u7801 / \u5206\u4EAB\u5BC6\u7801\uFF09\u3002\r
---\r
--- \u4E3A\u4EC0\u4E48\u4E0D\u7528 KV\uFF1AWorkers KV \u7684\u8BFB\u662F\u6700\u7EC8\u4E00\u81F4\u7684\uFF08\u53EF\u80FD\u547D\u4E2D 60 \u79D2\u5185\u7684\u65E7\u503C\uFF09\uFF0C\r
--- \u300C\u8BFB-\u52A0\u4E00-\u5199\u56DE\u300D\u5728\u8FDE\u7EED\u8BF7\u6C42\u91CC\u6C38\u8FDC\u8BFB\u5230\u521D\u59CB\u503C \u2014\u2014 \u5B9E\u6D4B 12 \u6B21\u767B\u5F55\u5C1D\u8BD5\u4E00\u6B21\u90FD\u6CA1\r
--- \u89E6\u53D1\u9650\u5236\u3002\u8BA1\u6570\u5FC5\u987B\u653E\u5728\u6709\u539F\u5B50\u8BED\u4E49\u7684\u5730\u65B9\uFF0C\u6240\u4EE5\u7528\u6570\u636E\u5E93\uFF1A\u4E00\u6761\r
--- \`INSERT ... ON CONFLICT DO UPDATE\` \u7531\u884C\u9501\u4E32\u884C\u5316\uFF0C\u8DE8 colo \u5171\u4EAB\u540C\u4E00\u4EFD\u8BA1\u6570\u3002\r
-CREATE TABLE IF NOT EXISTS rate_limits (\r
-  key          TEXT PRIMARY KEY,\r
-  window_start BIGINT NOT NULL,\r
-  hits         INTEGER NOT NULL DEFAULT 1\r
-);\r
-\r
--- \u6E05\u7406\u8FC7\u671F\u7A97\u53E3\u7528\uFF08cron \u987A\u5E26\u5220 window_start < now - 3600 \u7684\u884C\uFF09\r
-CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits (window_start);\r
-`;var W_=`-- \u5206\u4EAB\u4E3E\u62A5\uFF08edge \u81EA\u5EFA Pro \u529F\u80FD\uFF1A\u5206\u4EAB\u4E3E\u62A5\u5904\u7406\uFF09\u3002\r
--- \u7528\u6237\u5BF9\u88AB\u4E3E\u62A5\u5206\u4EAB\u63D0\u4EA4 reason + detail\uFF1B\u7BA1\u7406\u5458\u5728\u540E\u53F0\u67E5\u770B\u5E76\u6807\u8BB0\u5904\u7406\u72B6\u6001\u3002\r
-CREATE TABLE IF NOT EXISTS share_reports (\r
-    id          SERIAL PRIMARY KEY,\r
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at  TIMESTAMPTZ,\r
-    share_id    INTEGER NOT NULL,\r
-    reporter_id INTEGER,\r
-    reason      VARCHAR(32) NOT NULL DEFAULT 'other',\r
-    detail      TEXT,\r
-    status      VARCHAR(16) NOT NULL DEFAULT 'pending',\r
-    handled_by  INTEGER,\r
-    handled_at  TIMESTAMPTZ\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS idx_share_reports_status ON share_reports (status);\r
-CREATE INDEX IF NOT EXISTS idx_share_reports_share ON share_reports (share_id);\r
-CREATE INDEX IF NOT EXISTS idx_share_reports_created ON share_reports (created_at DESC);\r
-`;var G_=`-- ---------------------------------------------------------------------------\r
--- \u793E\u4EA4\u767B\u5F55\u7ED1\u5B9A\uFF08edge \u81EA\u5EFA Pro \u529F\u80FD\uFF1AQQ \u4E92\u8054\u7B49 OAuth2 \u7B2C\u4E09\u65B9\u767B\u5F55\uFF09\u3002\r
---\r
--- \u4E0E user_oidc_bindings \u5E73\u884C\uFF1AOIDC \u7528 (issuer, subject) \u552F\u4E00\uFF0C\u793E\u4EA4\u767B\u5F55\u7528\r
--- (provider, provider_user_id) \u552F\u4E00\u3002QQ \u4E92\u8054\u8FD4\u56DE\u7684 openid \u662F\u300C\u5E94\u7528\u7EF4\u5EA6\u300D\u7A33\u5B9A\r
--- \u6807\u8BC6\uFF0Cunionid \u662F\u300C\u540C\u4E00\u5F00\u53D1\u8005\u8DE8\u5E94\u7528\u300D\u7A33\u5B9A\u6807\u8BC6\uFF1B\u4E24\u8005\u90FD\u5B58\uFF0C\u6309 openid \u552F\u4E00\u7EA6\u675F\uFF0C\r
--- unionid \u4EC5\u4F5C\u515C\u5E95\u5339\u914D\uFF08\u540C\u4E00 QQ \u7528\u6237\u5728\u4E0D\u540C App \u4E0B openid \u4E0D\u540C\u4F46 unionid \u76F8\u540C\uFF09\u3002\r
---\r
--- \u793E\u4EA4\u767B\u5F55\u4E0D\u63D0\u4F9B\u90AE\u7BB1\uFF0C\u672C\u5730\u8D26\u53F7\u7528\u5408\u6210\u90AE\u7BB1\uFF08qq_<openid>@<\u7AD9\u70B9\u57DF\u540D>\uFF09\uFF0C\u56E0\u6B64\u672C\u8868\r
--- \u7684 email \u4EC5\u4F5C\u5C55\u793A/\u6392\u67E5\u7528\uFF0C\u4E0D\u4F5C\u4E3A\u8D26\u53F7\u4E3B\u952E\u3002\r
--- ---------------------------------------------------------------------------\r
-CREATE TABLE IF NOT EXISTS user_social_bindings (\r
-    id                 SERIAL PRIMARY KEY,\r
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),\r
-    deleted_at         TIMESTAMPTZ,\r
-    user_id            INTEGER     NOT NULL,\r
-    provider           VARCHAR(32) NOT NULL,\r
-    provider_user_id   VARCHAR(128) NOT NULL,\r
-    union_id           VARCHAR(128),\r
-    email              VARCHAR(255),\r
-    nickname           VARCHAR(255)\r
-);\r
-\r
--- \u540C\u4E00 provider \u4E0B\u540C\u4E00 provider_user_id \u53EA\u80FD\u7ED1\u5B9A\u4E00\u4E2A\u672C\u5730\u8D26\u53F7\r
-CREATE UNIQUE INDEX IF NOT EXISTS user_social_bindings_provider_uid\r
-    ON user_social_bindings (provider, provider_user_id);\r
-\r
--- \u540C\u4E00\u7528\u6237\u7ED1\u5B9A\u7684\u6240\u6709\u793E\u4EA4\u8EAB\u4EFD\uFF08\u8D26\u53F7\u8BBE\u7F6E\u9875\u5217\u51FA\u7528\uFF09\r
-CREATE INDEX IF NOT EXISTS user_social_bindings_user\r
-    ON user_social_bindings (user_id, deleted_at);\r
-\r
--- unionid \u515C\u5E95\u5339\u914D\uFF08\u540C\u4E00 QQ \u7528\u6237\u8DE8\u5E94\u7528\uFF09\r
-CREATE INDEX IF NOT EXISTS user_social_bindings_union\r
-    ON user_social_bindings (provider, union_id) WHERE union_id IS NOT NULL;\r
-`;var K_=`-- \u6587\u4EF6\u52A0\u5BC6\uFF08\u8FB9\u7F18\u7248\u81EA\u5EFA Cloudreve Pro\u300C\u6587\u4EF6\u52A0\u5BC6\u300D\u529F\u80FD\uFF0C\u670D\u52A1\u7AEF\u843D\u5730\u7684\u5B58\u50A8\u4FA7\u90E8\u5206\uFF09\r
---\r
--- \u52A0\u5BC6\u5728\u6D4F\u89C8\u5668\u7AEF\u5B8C\u6210\uFF08\u4E0A\u6E38\u524D\u7AEF Uploader \u5DF2\u5185\u7F6E EncryptedBlob\uFF0C\u8D70 AES-256-CTR\uFF09\uFF0C\r
--- \u670D\u52A1\u7AEF\u53EA\u505A\u4E09\u4EF6\u4E8B\uFF1A\r
---   1. \u4E0A\u4F20\u4F1A\u8BDD\u9636\u6BB5\u6309\u7B56\u7565\u751F\u6210\u6BCF\u6587\u4EF6\u7684\u968F\u673A\u5BC6\u94A5 + IV\uFF0C\u56DE\u4F20\u7ED9\u524D\u7AEF\u7528\u4E8E\u5BA2\u6237\u7AEF\u52A0\u5BC6\uFF1B\r
---   2. \u628A\u5BC6\u6587\u76F8\u5173\u7684\u5BC6\u94A5\u6750\u6599\u5B58\u5230\u6570\u636E\u5E93\uFF08\u4E0E\u5B58\u50A8\u540E\u7AEF\u5206\u79BB\uFF0C\u5B58\u50A8\u65B9\u53EA\u770B\u5230\u5BC6\u6587\uFF09\uFF1B\r
---   3. \u4E0B\u8F7D\u65F6\u6309\u5B58\u7684\u5BC6\u94A5\u628A\u5BC6\u6587\u8FD8\u539F\u6210\u660E\u6587\u518D\u8FD4\u56DE\uFF08\u524D\u7AEF\u4E0B\u8F7D/\u9884\u89C8\u65E0\u611F\uFF09\u3002\r
---\r
--- files.encrypted        \uFF1A\u6587\u4EF6\u662F\u5426\u52A0\u5BC6\u7684\u8F7B\u91CF\u6807\u5FD7\uFF0C\u4F9B\u5217\u8868/\u8BE6\u60C5\u4E0B\u53D1\uFF08\u5C55\u793A\u9501\u6807\uFF09\u3002\r
--- entities.enc_meta      \uFF1A\u8BE5\u5B9E\u4F53\u5185\u5BB9\u7684 AES-256-CTR \u5BC6\u94A5\u6750\u6599\uFF08base64 JSON\uFF09\uFF0C\r
---                          \u4EC5\u5B58\u4E8E\u672C\u4ED3\u5E93\u6570\u636E\u5E93\uFF0COneDrive/S3/R2 \u7B49\u5B58\u50A8\u540E\u7AEF\u53EA\u770B\u5230\u5BC6\u6587\u3002\r
-ALTER TABLE files ADD COLUMN IF NOT EXISTS encrypted BOOLEAN NOT NULL DEFAULT FALSE;\r
-ALTER TABLE entities ADD COLUMN IF NOT EXISTS enc_meta TEXT;\r
-`;var V_=`-- =============================================================================\r
--- 0018_key_values.sql \u2014\u2014 \u901A\u7528 KV \u8868\uFF08EdgeOne \u7B49\u65E0 KV \u7ED1\u5B9A\u73AF\u5883\u7684 KV \u515C\u5E95\uFF09\r
---\r
--- \u80CC\u666F\uFF1ACloudreve \u7684\u4F1A\u8BDD\uFF08session\uFF09\u3001\u4E0A\u4F20\u4F1A\u8BDD\u9501\uFF08upload\uFF09\u3001\u5916\u90E8\u51ED\u636E\u7F13\u5B58\r
--- \uFF08cred\uFF09\u3001\u81EA\u4E3E\u6807\u8BB0\uFF08flag\uFF09\u5168\u653E\u5728 Workers KV \u91CC\u3002EdgeOne Node \u4E91\u51FD\u6570\u6CA1\u6709\r
--- KV \u7ED1\u5B9A\uFF0CkvRouter \u68C0\u6D4B\u5230\u5168\u7ED1\u5B9A\u7F3A\u5931\u65F6\u628A\u8FD9\u4E9B\u952E\u843D\u5230\u8FD9\u5F20\u8868\u3002\r
---\r
--- \u8BED\u4E49\u5BF9\u9F50 Workers KV\uFF1A\r
---   - get/put/delete/list({prefix}) \u56DB\u4E2A\u65B9\u6CD5\uFF08Cloudreve \u7684\u5168\u90E8\u7528\u91CF\uFF09\r
---   - put \u652F\u6301 expirationTtl\uFF08\u5199 expire_at\uFF09\u4E0E metadata\uFF08JSON \u5B58\u540C\u8868\uFF09\r
---   - \u8BFB\u65F6\u8FC7\u6EE4\u8FC7\u671F\u884C\uFF1B\u8FC7\u671F\u884C\u7531 cron\uFF08CF\uFF09/ \u60F0\u6027\uFF08EdgeOne\uFF09\u6E05\u7406\r
---\r
--- \u26A0\uFE0F kvStore \u7684\u515C\u5E95\u8DEF\u5F84\u4F1A\u5728\u8868\u7F3A\u5931\u65F6\u81EA\u52A8 CREATE TABLE IF NOT EXISTS\uFF1A\r
---    \u8FC1\u79FB\u6807\u8BB0\u672C\u8EAB\u4E5F\u8D70 KV\uFF08flag \u89D2\u8272\uFF09\uFF0C\u6CA1\u6709\u8FD9\u5F20\u8868\u8FC1\u79FB\u6D41\u7A0B\u5C31\u8DD1\u4E0D\u8D77\u6765\u3002\r
--- =============================================================================\r
-CREATE TABLE IF NOT EXISTS key_values (\r
-    key       TEXT PRIMARY KEY,\r
-    value     TEXT NOT NULL,\r
-    metadata  TEXT,\r
-    expire_at TIMESTAMPTZ\r
-);\r
-\r
-CREATE INDEX IF NOT EXISTS idx_key_values_expire ON key_values (expire_at);\r
+`);let m=await c.readResponse();if(m.code!==250)throw new Nt(`\u670D\u52A1\u5668\u62D2\u6536\uFF1A${m.text}`,m.code,m.text);try{await c.command("QUIT",[221])}catch{}};try{await El(l(),lI,"\u5B8C\u6210\u6574\u5C01\u90AE\u4EF6\u6295\u9012")}finally{await c.close()}}function Bw(t,e){return t.replace(/\{\{\s*\.([A-Za-z0-9_.]+)\s*\}\}/g,(r,n)=>{let i=e;for(let s of n.split(".")){if(i===null||typeof i!="object")return"";i=i[s]}return i==null?"":i instanceof Date?i.toISOString():String(i)})}function fI(t,e){if(t.length===0)return null;if(e){let r=t.find(n=>n.language.toLowerCase()===e.toLowerCase());if(r)return r}return t[0]}function hI(t){try{let e=JSON.parse(t);return Array.isArray(e)?e.filter(r=>typeof r=="object"&&r!==null&&typeof r.title=="string"&&typeof r.body=="string"):[]}catch{return[]}}function mI(t){if(t==null)return!1;let e=t.trim().toLowerCase();return e===""?!1:e!=="0"&&e!=="false"&&e!=="off"&&e!=="no"}var zr=class{constructor(e){this.ctx=e}ctx;get available(){return this.ctx.settings.smtp.host.trim()!==""}resolveConfig(e){let r=this.ctx.settings.smtp,n=this.ctx.settings.mailSender;return{host:r.host.trim(),port:r.port,user:r.user.trim(),pass:r.pass,forceEncryption:r.forceEncryption,fromName:n.name.trim()||"Cloudreve",fromAddress:n.address.trim(),replyTo:n.replyTo.trim(),...e}}async send(e,r,n,i,s=40028){let o=this.resolveConfig(i);if(!o.host)throw new R(40028,"No available email provider");if(!o.fromAddress)throw new R(50005,"Sender address (fromAdress) is not configured");try{await Mw({host:o.host,port:o.port,user:o.user||void 0,pass:o.pass,forceEncryption:o.forceEncryption},{from:o.fromAddress,fromName:o.fromName,replyTo:o.replyTo||void 0,to:e,subject:r,html:n}),ue(this.ctx,"email_sent",this.ctx.user?.id??null,{to:e,title:r})}catch(a){let c=a instanceof Nt||a instanceof Error?a.message:String(a);throw new R(s,c,a instanceof Error?a.name:void 0)}}templateData(e,r,n){let i=this.ctx.settings.siteUrl.replace(/\/+$/,""),s=o=>o&&!/^https?:\/\//i.test(o)?`${i}${o.startsWith("/")?"":"/"}${o}`:o;return{CommonContext:{SiteBasic:{Name:this.ctx.settings.siteName,Title:this.ctx.settings.siteTitle,ID:this.ctx.settings.siteId,Description:this.ctx.settings.get("siteDes",""),Script:this.ctx.settings.siteScript},Logo:{Normal:s(this.ctx.settings.get("site_logo","")),Light:s(this.ctx.settings.get("site_logo_light",""))},SiteUrl:i},User:{ID:e?.id??0,Email:e?.email??"",Nick:e?.nick??"",CreatedAt:e?.created_at??"",Storage:e?.storage??0},Url:r,...n}}render(e,r,n,i){let s=hI(this.ctx.settings.get(e,"")),o=fI(s,r.settings?.email_language);if(!o)throw new R(50005,i);return{title:Bw(o.title,n),body:Bw(o.body,n)}}async sendActivationEmail(e,r){let{title:n,body:i}=this.render("mail_activation_template",e,this.templateData(e,r),"Activation email template not configured");await this.send(e.email,n,i)}async sendResetEmail(e,r){let{title:n,body:i}=this.render("mail_reset_template",e,this.templateData(e,r),"Reset email template not configured");await this.send(e.email,n,i)}async sendReceiptEmail(e,r){let n=this.templateData(e,"",{Order:{No:r.orderNo,ProductName:r.productName,ProductType:r.productType,Amount:(r.amountFen/100).toFixed(2),TradeNo:r.tradeNo??"",PaidAt:r.paidAt?r.paidAt.toISOString():""}}),{title:i,body:s}=this.render("mail_receipt_template",e,n,"Receipt email template not configured");await this.send(e.email,i,s)}async sendExceedQuotaEmail(e){let{title:r,body:n}=this.render("mail_exceed_quota_template",e,this.templateData(e,""),"Exceed quota email template not configured");await this.send(e.email,r,n)}async sendTestEmail(e,r){let n=this.resolveConfig();if(!e||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))throw new R(40001,"Invalid recipient address");let i=r.smtpPort??String(n.port),s=Number.parseInt(i,10);if(!Number.isFinite(s))throw new R(40001,"Invalid SMTP port");let o={host:(r.smtpHost??n.host).trim(),port:s,user:(r.smtpUser??n.user).trim(),pass:r.smtpPass??n.pass,forceEncryption:r.smtpEncryption!==void 0?mI(r.smtpEncryption):n.forceEncryption,fromName:(r.fromName??n.fromName).trim()||"Cloudreve",fromAddress:(r.fromAdress??n.fromAddress).trim(),replyTo:(r.replyTo??n.replyTo).trim()};if(!o.host)throw new R(50005,"SMTP host is not configured");try{await this.send(e,"Cloudreve SMTP Test","This is a test email from Cloudreve.",o,50005)}catch(a){throw a instanceof R&&a.code===50005?new R(50005,`Failed to send test email: ${a.message}`):a}}};gn();ia();kr();Dr();Jt();We();Ic();function Sl(t){let e=t("CF-Connecting-IP");if(e)return e.trim();let r=t("X-Forwarded-For");if(r){let n=r.split(",").map(i=>i.trim()).filter(Boolean);if(n.length)return n[n.length-1]}return"unknown"}function a_(t){return/^\d{1,3}(?:\.\d{1,3}){3}$/.test(t)?`${t.split(".").slice(0,3).join(".")}.0/24`:/^[0-9a-fA-F:]+$/.test(t)&&(t.match(/:/g)??[]).length>=2?`${t.split(":").slice(0,2).join(":")}::/32`:t}_i();var vl=new WeakMap;function sa(t,e,r){let n=vl.get(t);n&&n.push({name:e,ms:performance.now()-r})}function c_(t){vl.has(t)||vl.set(t,[])}function l_(t){return vl.get(t)}function u_(){return async(t,e)=>{t.header("X-Content-Type-Options","nosniff"),t.header("Referrer-Policy","strict-origin-when-cross-origin"),t.header("X-Frame-Options","SAMEORIGIN"),await e()}}async function _I(t,e,r,n){if(!e||e.startsWith(zu)||!e.startsWith(Ma))return;let i=e.slice(Ma.length);if(!i)return;let o=await new Ar(r.secretKey).verify(i);if(!o||o.token_type!=="access")return;let c=new jr(r.hashIdSalt).decodeUserID(o.sub);if(c===null)return;let l=await pp(t,n.sql,c);if(!(!l||l.status!=="active"))return{user:l,claims:o}}function d_(){return async(t,e)=>{let r=performance.now(),n=t.env,i=t.req.header("X-Correlation-ID")??crypto.randomUUID();t.set("correlationId",i),xc(n),yp(n);let s=Ct(n),o=sf(),a=b=>t.executionCtx.waitUntil(b),c;if(o)try{c=await o}catch{c=await jt(n,s,a)}else c=await jt(n,s,a);let l=performance.now()-r;(!c.get("secret_key")||!c.get("hash_id_salt"))&&a(ta(n,s).catch(()=>{}));let u=new jr(c.hashIdSalt),d=new Ar(c.secretKey),p,m=t.req.header("Authorization")??null,h=await _I(n,m,c,s),f=h?.user,w=performance.now()-r;if(f&&h?.claims?.client_id&&(p=h.claims.scopes),f?.settings?.group_pack){let b=f.settings.group_pack;if(b.expire_at&&new Date(b.expire_at).getTime()<=Date.now())try{let A=new vr(s.sql);await A.clearGroupPack(f.id,b.prev_group_id),f.group_users=b.prev_group_id,f.settings={...f.settings??{},group_pack:null};let E=await A.byIdWithGroup(f.id);E&&(f.group=E.group),await fp(n,f.id)}catch{}}let g=new Wt(n,c,u,d,f,p,s);c_(g),g.clientIp=Sl(b=>t.req.header(b)),g.setBackgroundHooks({waitUntil:b=>t.executionCtx.waitUntil(b),onQuotaExceeded:b=>{let T=ee(n,"session");T&&t.executionCtx.waitUntil((async()=>{let A=`mail_exceed_quota_sent_${b.id}`;try{if(await T.get(A))return;await T.put(A,"1",{expirationTtl:86400});let E=new zr(g);E.available&&await E.sendExceedQuotaEmail(b),ue(g,"user_exceed_quota_notified",b.id)}catch{}})())}}),t.set("ctx",g),t.header("X-Correlation-ID",i),await e();let _=performance.now()-r;try{let b=(l_(g)??[]).map(T=>`, ${T.name};dur=${T.ms.toFixed(1)}`).join("");t.header("Server-Timing",`settings;dur=${l.toFixed(1)}, auth;dur=${w.toFixed(1)}, total;dur=${_.toFixed(1)}${b}`)}catch{}}}function j(t){return t.get("ctx")}function df(){return globalThis.caches?.default??null}function pf(t,e){try{return new Request(`${t.replace(/\/+$/,"")}${e}`,{method:"GET"})}catch{return null}}async function Jn(t,e){let r=df();if(!r)return null;let n=pf(t,e);if(!n)return null;try{return await r.match(n)??null}catch{return null}}function Is(t,e,r,n,i=21600){let s=df();if(!s||!t||n.status!==200)return;let o=pf(e,r);if(o)try{let a=new Headers(n.headers);a.set("Cache-Control",`public, max-age=${i}`),a.delete("Content-Disposition"),a.delete("Vary"),a.delete("Pragma"),a.delete("Expires"),a.delete("Set-Cookie");let c=n.clone().body;if(!c)return;let l=new Response(c,{status:200,headers:a}),u=s.put(o,l).catch(()=>{});try{t(u)}catch(d){console.error("edge cache: waitUntil unavailable, write may be dropped",d)}}catch{}}function oa(t,e){let r=new Headers(t.headers);for(let[n,i]of Object.entries(e))r.set(n,i);return new Response(t.body,{status:t.status,statusText:t.statusText,headers:r})}async function p_(t,e,r,n){let i=df();if(!i)return"no-cache-api";if(r.status!==200)return`skip-status-${r.status}`;let s=pf(t,e);if(!s)return"bad-key";try{let o=new Headers(r.headers);o.set("Cache-Control",`public, max-age=${n}`),o.delete("Content-Disposition"),o.delete("Vary"),o.delete("Pragma"),o.delete("Expires"),o.delete("Set-Cookie");let a=r.clone().body;return a?(await i.put(s,new Response(a,{status:200,headers:o})),"stored"):"no-body"}catch(o){return`error:${o instanceof Error?o.message:String(o)}`}}function f_(t,e){let r=Number(t.headers.get("Content-Length")??"");return{body:t.body,size:Number.isFinite(r)&&r>0?r:e,contentType:t.headers.get("Content-Type")??void 0}}We();var bI="v1";async function hf(t){let e=new TextEncoder().encode(t),r=await crypto.subtle.digest("SHA-256",e),n=new Uint8Array(r),i="";for(let s=0;s<n.length;s++)i+=n[s].toString(16).padStart(2,"0");return i}var ff=new Map,EI=2e3;function h_(t){return(t.JWT_SECRET??"").slice(0,8)||"dev"}async function m_(t,e){let r=`${h_(t)}:${e}`,n=Date.now(),i=ff.get(r);if(i&&n-i.t<EI)return i.v;let s="0";try{let o=ee(t,"session");if(o){let a=await o.get(`edge:ep:${e}`);a&&(s=a)}}catch{}return ff.set(r,{v:s,t:n}),s}async function g_(t,e){try{let r=ee(t,"session");if(!r)return;await r.put(`edge:ep:${e}`,String(Date.now()),{expirationTtl:3600}),ff.delete(`${h_(t)}:${e}`)}catch{}}function y_(t){return new URL(t.req.url).origin.replace(/\/+$/,"")}function SI(t){let e=new URL(t.req.url),r=[...e.searchParams.keys()].sort();return r.length===0?"":r.map(n=>`${n}=${e.searchParams.get(n)}`).join("&")}function w_(t,e,r){return`/__edge_auth__/${[bI,e,r,encodeURIComponent(t.req.path),encodeURIComponent(SI(t)),encodeURIComponent(t.req.header("Origin")??"")].join("/")}`}async function __(t,e,r){let n=y_(t),i=w_(t,e,r);return Jn(n,i)}function b_(t,e,r,n){let i=y_(t),s=w_(t,e,r);Is(o=>t.executionCtx.waitUntil(o),i,s,t.res,n)}var E_="edge:ep:share";async function S_(t){try{let e=ee(t,"session");return e?await e.get(E_)??"0":"0"}catch{return"0"}}async function aa(t){try{let e=ee(t,"session");if(!e)return;await e.put(E_,String(Date.now()))}catch{}}var vI="/api/v4/file";function v_(t){if(t.req.method!=="GET")return!1;let e=t.req.path;return TI.test(e)?!t.req.header("Authorization"):e==="/api/v4/file"?t.req.header("Authorization")?!1:(t.req.query("uri")??"").includes("@share"):t.req.header("Authorization")?!1:xI.test(e)}function RI(t){return 60}var TI=/^\/api\/v4\/site\/config\//,xI=/^\/api\/v4\/site\/ping$/;function R_(t,e){let r=t.req.header("Origin"),n=new URL(t.req.url).search;return`${t.req.path}${n}${r?`|o=${r}`:""}${e!=="0"?`|s=${e}`:""}`}async function T_(t){return t.req.path!==vI?"0":S_(t.env)}function x_(){return async(t,e)=>{if(!v_(t))return e();let r=new URL(t.req.url).origin,n=await Jn(r,R_(t,await T_(t)));if(n){let i=t.req.header("X-Correlation-ID")??crypto.randomUUID();return oa(n,{"X-Correlation-ID":i,"X-Edge-Cache":"hit"})}return e()}}function I_(){return async(t,e)=>{await e();let r=t.res;if(r.status!==200||!v_(t))return;try{if((await r.clone().json()).code!==0)return}catch{return}let n=new URL(t.req.url).origin,i=await p_(n,R_(t,await T_(t)),r,RI(t));if(r.body&&!r.bodyUsed){let s=new Headers(r.headers);s.set("X-Edge-Cache",i),t.res=new Response(r.body,{status:r.status,headers:s})}}}var II=[{re:/^\/api\/v4\/user\/me$/,ttl:30},{re:/^\/api\/v4\/site\/config\/(login|explorer|thumb)$/,ttl:30},{re:/^\/api\/v4\/file$/,ttl:60},{re:/^\/api\/v4\/file\/info$/,ttl:60},{re:/^\/api\/v4\/file\/thumb$/,ttl:60}];function AI(t){if(t.req.method!=="GET")return null;let e=t.req.path;for(let r of II)if(r.re.test(e))return r;return null}async function A_(t){try{let r=await t.res.clone().json();return typeof r.code=="number"?r.code:null}catch{return null}}function k_(){return async(t,e)=>{let r=AI(t),n,i,s=0;if(r){let a=t.req.header("Authorization")??null;if(a){let c=await hf(a),l=await m_(t.env,c),u=await __(t,c,l);if(u){let d=t.req.header("X-Correlation-ID")??crypto.randomUUID();return oa(u,{"X-Correlation-ID":d,"X-Edge-Cache":"hit","Cache-Control":`private, max-age=0, stale-while-revalidate=${r.ttl}`})}n=c,i=l,s=r.ttl}}await e();let o=t.res;if(n&&o.status===200){await A_(t)===0&&(b_(t,n,i,s),t.res=oa(o,{"Cache-Control":`private, max-age=0, stale-while-revalidate=${s}`,"X-Edge-Cache":"miss"}));return}if(r===null&&t.req.method!=="GET"&&o.status===200){let a=t.req.header("Authorization");a&&await A_(t)===0&&await g_(t.env,await hf(a))}}}Ot();$e();gn();var N_=`-- =============================================================================
+-- Cloudreve Edge \u2014 Neon (PostgreSQL) \u521D\u59CB\u5316 schema
+--
+-- \u672C\u6587\u4EF6\u662F Cloudreve v4 \`ent/schema/*.go\` \u5728 PostgreSQL \u4E0A\u7684\u7B49\u4EF7\u6620\u5C04\u3002
+-- \u8868\u540D\u3001\u5217\u540D\u3001\u7EA6\u675F\u3001\u7D22\u5F15\u540D\u5C3D\u91CF\u4E0E ent \u751F\u6210\u7684\u4FDD\u6301\u4E00\u81F4\uFF0C\u4FBF\u4E8E\u65E5\u540E\u5BF9\u7167\u3002
+--
+-- \u4E0E\u539F\u59CB Go \u7248\u7684\u5DEE\u5F02\uFF08\u6709\u610F\u4E3A\u4E4B\uFF09\uFF1A
+--   1. \u53BB\u6389\u4E86 nodes / dav_accounts / fsevents / oauth_clients / oauth_grants /
+--      passkeys \u516D\u5F20\u8868 \u2014\u2014 \u8FB9\u7F18\u7248\u4E0D\u5B9E\u73B0\u591A\u8282\u70B9\u96C6\u7FA4\u3001WebDAV\u3001\u4E8B\u4EF6\u63A8\u9001\u3001OAuth
+--      \u5E94\u7528\u4E0E Passkey \u767B\u5F55\uFF08\u89C1 README \u7684\u300C\u672A\u5B9E\u73B0\u300D\u6E05\u5355\uFF09\u3002
+--   2. \u6240\u6709 JSON \u5217\u4F7F\u7528 jsonb\uFF08ent \u7528\u7684\u662F json\uFF09\u3002
+--   3. \u5E03\u5C14\u4F4D\u96C6\uFF08groups.permissions \u7B49\uFF09\u4F7F\u7528 bytea\uFF0C\u4F4D\u5E8F\u4E0E\u539F\u7248\u4E00\u81F4\uFF08LSB-first\uFF09\u3002
+--   4. users.group_users \u7B49\u5916\u952E\u4FDD\u7559\uFF0C\u4F46\u90E8\u5206 ON DELETE \u884C\u4E3A\u505A\u4E86\u6536\u655B\uFF0C\u89C1\u6CE8\u91CA\u3002
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- \u7528\u6237\u7EC4\u3002\u4ED8\u8D39\u76F8\u5173\u5B57\u6BB5\u4E00\u6982\u6CA1\u6709\uFF1B\u4FDD\u7559 name / max_storage / speed_limit\uFF0C
+-- \u56E0\u4E3A\u9700\u6C42\u662F\u300C\u53EA\u780D\u4ED8\u8D39\uFF0C\u4FDD\u7559\u7528\u6237\u7EC4\u914D\u989D\u300D\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS groups (
+    id                SERIAL PRIMARY KEY,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ,
+    name              TEXT        NOT NULL,
+    max_storage       BIGINT,
+    speed_limit       INTEGER,
+    -- boolset.BooleanSet\uFF0CLSB-first \u4F4D\u5E8F\uFF0C\u89C1 src/lib/boolset.ts
+    permissions       BYTEA       NOT NULL DEFAULT ''::bytea,
+    settings          JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    storage_policy_id INTEGER
+);
+
+-- ---------------------------------------------------------------------------
+-- \u7528\u6237
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+    id                SERIAL PRIMARY KEY,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ,
+    email             VARCHAR(100) NOT NULL,
+    nick              VARCHAR(100) NOT NULL,
+    -- \u683C\u5F0F: "<salt>:<sha256hex(password+salt)>"\uFF0C\u517C\u5BB9 v2 \u7684 "md5:<hash>:<salt>"
+    password          TEXT,
+    status            TEXT        NOT NULL DEFAULT 'active'
+                      CHECK (status IN ('active', 'inactive', 'manual_banned', 'sys_banned')),
+    storage           BIGINT      NOT NULL DEFAULT 0,
+    two_factor_secret TEXT,
+    avatar            TEXT,
+    settings          JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    group_users       INTEGER     NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_email ON users (email);
+
+-- ---------------------------------------------------------------------------
+-- \u5B58\u50A8\u7B56\u7565\u3002type \u53D6\u503C\u4E3A 'r2'\uFF08\u8FB9\u7F18\u5185\u7F6E\uFF09\u6216 'onedrive'\uFF0C\u4EE5\u53CA\u539F\u7248\u7684\u5176\u5B83\u53D6\u503C
+-- \uFF08's3' / 'local' / 'remote' \u7B49\u2014\u2014\u975E r2/onedrive \u7684\u7C7B\u578B\u5728\u5F53\u524D\u5B9E\u73B0\u4E0B\u4E0D\u53EF\u7528\uFF0C
+-- \u4E0A\u4F20\u65F6\u4F1A\u8FD4\u56DE 40006 \u7B56\u7565\u4E0D\u5141\u8BB8\uFF09\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS storage_policies (
+    id                  SERIAL PRIMARY KEY,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    name                TEXT   NOT NULL,
+    type                TEXT   NOT NULL,
+    server              TEXT,
+    bucket_name         TEXT,
+    is_private          BOOLEAN,
+    access_key          TEXT,
+    secret_key          TEXT,
+    max_size            BIGINT,
+    dir_name_rule       TEXT,
+    file_name_rule      TEXT,
+    settings            JSONB  NOT NULL DEFAULT '{}'::jsonb,
+    node_id             INTEGER
+);
+
+-- ---------------------------------------------------------------------------
+-- \u6587\u4EF6\u8282\u70B9\uFF08\u6587\u4EF6\u5939\u4E0E\u6587\u4EF6\u7684\u7EDF\u4E00\u6A21\u578B\uFF09\u3002\u6CE8\u610F\uFF1Afiles \u8868\u6CA1\u6709 deleted_at\uFF0C
+-- \u56DE\u6536\u7AD9\u662F\u901A\u8FC7\u628A file_children \u6307\u5411 trash \u6839\u5B9E\u73B0\u7684\uFF0C\u4E0E\u539F\u7248\u4E00\u81F4\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS files (
+    id                   SERIAL PRIMARY KEY,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    type                 INTEGER NOT NULL,   -- 0=file 1=folder
+    name                 TEXT    NOT NULL,
+    owner_id             INTEGER NOT NULL,
+    size                 BIGINT  NOT NULL DEFAULT 0,
+    primary_entity       INTEGER,
+    file_children        INTEGER,            -- \u7236\u76EE\u5F55 id\uFF1B\u6839\u76EE\u5F55\u4E3A NULL
+    is_symbolic          BOOLEAN NOT NULL DEFAULT false,
+    props                JSONB,
+    storage_policy_files INTEGER
+);
+
+-- \u540C\u540D\u5144\u5F1F\u8282\u70B9\u552F\u4E00\uFF08\u6839\u76EE\u5F55\u81EA\u8EAB file_children \u4E3A NULL\uFF0C\u4E0D\u53C2\u4E0E\u8BE5\u7D22\u5F15\uFF09\u3002
+CREATE UNIQUE INDEX IF NOT EXISTS file_file_children_name
+    ON files (file_children, name) WHERE file_children IS NOT NULL;
+
+-- \u6BCF\u4E2A\u7528\u6237\u53EA\u6709\u4E00\u4E2A\u6839\u76EE\u5F55\u3002\u300C\u6839\u76EE\u5F55\u300D\u7684\u5224\u5B9A\u6761\u4EF6\u4E0E\u539F\u7248\u4E00\u81F4\uFF1A
+--   name = '' AND file_children IS NULL\uFF08\u89C1 inventory/file.go RootFolderName\uFF09\u3002
+-- \u6CE8\u610F\uFF1A\u56DE\u6536\u7AD9\u91CC\u7684\u6587\u4EF6\u540C\u6837\u662F file_children IS NULL\uFF0C\u4F46 name \u975E\u7A7A\uFF0C
+-- \u6240\u4EE5\u8FD9\u91CC\u5FC5\u987B\u5E26\u4E0A name = '' \u624D\u4E0D\u4F1A\u88AB\u56DE\u6536\u7AD9\u9879\u8BEF\u4F24\u3002
+CREATE UNIQUE INDEX IF NOT EXISTS file_owner_root
+    ON files (owner_id) WHERE file_children IS NULL AND name = '';
+
+-- \u56DE\u6536\u7AD9\u5217\u8868\u7528\uFF1Afile_children IS NULL \u4E14 name \u975E\u7A7A
+CREATE INDEX IF NOT EXISTS file_owner_trash
+    ON files (owner_id, type, updated_at) WHERE file_children IS NULL AND name <> '';
+
+CREATE INDEX IF NOT EXISTS file_file_children_type_updated_at ON files (file_children, type, updated_at);
+CREATE INDEX IF NOT EXISTS file_file_children_type_created_at ON files (file_children, type, created_at);
+CREATE INDEX IF NOT EXISTS file_file_children_type_size       ON files (file_children, type, size);
+CREATE INDEX IF NOT EXISTS file_owner_id                      ON files (owner_id);
+CREATE INDEX IF NOT EXISTS file_primary_entity                ON files (primary_entity);
+
+-- ---------------------------------------------------------------------------
+-- \u5B9E\u4F53\uFF08\u6587\u4EF6\u7684\u5B9E\u9645\u5185\u5BB9\u7248\u672C\uFF09\u3002source \u662F\u5B58\u50A8\u540E\u7AEF\u91CC\u7684\u5BF9\u8C61\u952E\u3002
+-- \u6CE8\u610F\u5217\u540D recycle_options \u5BF9\u5E94 ent \u91CC\u7684 Go \u5B57\u6BB5 props\uFF08StorageKey \u6539\u5199\u8FC7\uFF09\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS entities (
+    id                      SERIAL PRIMARY KEY,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at              TIMESTAMPTZ,
+    type                    INTEGER NOT NULL,   -- 0=version 1=thumbnail 2=live_photo
+    source                  TEXT    NOT NULL,
+    size                    BIGINT  NOT NULL,
+    reference_count         INTEGER NOT NULL DEFAULT 1,
+    storage_policy_entities INTEGER NOT NULL,
+    created_by              INTEGER,
+    upload_session_id       UUID,
+    recycle_options         JSONB
+);
+
+CREATE INDEX IF NOT EXISTS entity_storage_policy_entities ON entities (storage_policy_entities);
+CREATE INDEX IF NOT EXISTS entity_source                  ON entities (source);
+
+-- \u6587\u4EF6 \u2194 \u5B9E\u4F53 \u591A\u5BF9\u591A
+CREATE TABLE IF NOT EXISTS file_entities (
+    file_id   INTEGER NOT NULL REFERENCES files (id)    ON DELETE CASCADE,
+    entity_id INTEGER NOT NULL REFERENCES entities (id) ON DELETE CASCADE,
+    PRIMARY KEY (file_id, entity_id)
+);
+
+-- ---------------------------------------------------------------------------
+-- \u5206\u4EAB\u94FE\u63A5\u3002\u6CA1\u6709\u300C\u4ED8\u8D39\u5206\u4EAB\u300D\u76F8\u5173\u5217\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS shares (
+    id               SERIAL PRIMARY KEY,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at       TIMESTAMPTZ,
+    password         TEXT,
+    views            INTEGER NOT NULL DEFAULT 0,
+    downloads        INTEGER NOT NULL DEFAULT 0,
+    expires          TIMESTAMPTZ,
+    remain_downloads INTEGER,
+    props            JSONB,
+    file_shares      INTEGER,
+    user_shares      INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS share_file_shares ON shares (file_shares);
+CREATE INDEX IF NOT EXISTS share_user_shares ON shares (user_shares);
+
+-- ---------------------------------------------------------------------------
+-- \u6587\u4EF6\u81EA\u5B9A\u4E49\u5143\u6570\u636E
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS metadata (
+    id         SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    name       TEXT    NOT NULL,
+    value      TEXT    NOT NULL,
+    file_id    INTEGER NOT NULL,
+    is_public  BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS metadata_file_id_name ON metadata (file_id, name);
+
+-- ---------------------------------------------------------------------------
+-- \u6587\u4EF6\u5916\u94FE\uFF08\u76F4\u94FE\uFF09
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS direct_links (
+    id         SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    name       TEXT    NOT NULL,
+    downloads  INTEGER NOT NULL DEFAULT 0,
+    speed      INTEGER NOT NULL DEFAULT 0,
+    file_id    INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS directlink_file_id ON direct_links (file_id);
+
+-- ---------------------------------------------------------------------------
+-- \u7AD9\u70B9\u8BBE\u7F6E\uFF08key-value\uFF09\u3002\u539F\u7248 ent \u91CC name \u662F\u552F\u4E00\u7D22\u5F15\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS settings (
+    id         SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    name       TEXT NOT NULL,
+    value      TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS setting_name ON settings (name);
+
+-- ---------------------------------------------------------------------------
+-- \u5F02\u6B65\u4EFB\u52A1\u3002\u8FB9\u7F18\u7248\u53EA\u7528\u4E8E\u300C\u6253\u5305\u4E0B\u8F7D\u300D\u8FD9\u7C7B\u9700\u8981\u8DE8\u8BF7\u6C42\u4FDD\u5B58\u72B6\u6001\u7684\u4EFB\u52A1\uFF0C
+-- \u4E0D\u5B9E\u73B0\u8FDC\u7A0B\u4E0B\u8F7D / \u89E3\u538B / \u96C6\u7FA4\u4EFB\u52A1\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tasks (
+    id              SERIAL PRIMARY KEY,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    type            TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'queued'
+                    CHECK (status IN ('queued', 'processing', 'suspending', 'error', 'canceled', 'completed')),
+    public_state    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    private_state   TEXT,
+    correlation_id  UUID,
+    user_tasks      INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS task_user_tasks ON tasks (user_tasks);
+
+-- ---------------------------------------------------------------------------
+-- \u5916\u952E\u7EA6\u675F\uFF08\u653E\u5728\u5EFA\u8868\u4E4B\u540E\uFF0C\u907F\u514D\u5EFA\u8868\u987A\u5E8F\u9020\u6210\u7684\u5FAA\u73AF\u4F9D\u8D56\uFF09
+-- ---------------------------------------------------------------------------
+ALTER TABLE users              DROP CONSTRAINT IF EXISTS users_group_users_fkey;
+ALTER TABLE users              ADD  CONSTRAINT users_group_users_fkey
+    FOREIGN KEY (group_users) REFERENCES groups (id) ON DELETE NO ACTION;
+
+ALTER TABLE groups             DROP CONSTRAINT IF EXISTS groups_storage_policy_id_fkey;
+ALTER TABLE groups             ADD  CONSTRAINT groups_storage_policy_id_fkey
+    FOREIGN KEY (storage_policy_id) REFERENCES storage_policies (id) ON DELETE SET NULL;
+
+ALTER TABLE files              DROP CONSTRAINT IF EXISTS files_owner_id_fkey;
+ALTER TABLE files              ADD  CONSTRAINT files_owner_id_fkey
+    FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE NO ACTION;
+
+ALTER TABLE files              DROP CONSTRAINT IF EXISTS files_file_children_fkey;
+ALTER TABLE files              ADD  CONSTRAINT files_file_children_fkey
+    FOREIGN KEY (file_children) REFERENCES files (id) ON DELETE SET NULL;
+
+ALTER TABLE files              DROP CONSTRAINT IF EXISTS files_storage_policy_files_fkey;
+ALTER TABLE files              ADD  CONSTRAINT files_storage_policy_files_fkey
+    FOREIGN KEY (storage_policy_files) REFERENCES storage_policies (id) ON DELETE SET NULL;
+
+ALTER TABLE entities           DROP CONSTRAINT IF EXISTS entities_storage_policy_entities_fkey;
+ALTER TABLE entities           ADD  CONSTRAINT entities_storage_policy_entities_fkey
+    FOREIGN KEY (storage_policy_entities) REFERENCES storage_policies (id) ON DELETE NO ACTION;
+
+ALTER TABLE entities           DROP CONSTRAINT IF EXISTS entities_created_by_fkey;
+ALTER TABLE entities           ADD  CONSTRAINT entities_created_by_fkey
+    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL;
+
+ALTER TABLE shares             DROP CONSTRAINT IF EXISTS shares_file_shares_fkey;
+ALTER TABLE shares             ADD  CONSTRAINT shares_file_shares_fkey
+    FOREIGN KEY (file_shares) REFERENCES files (id) ON DELETE SET NULL;
+
+ALTER TABLE shares             DROP CONSTRAINT IF EXISTS shares_user_shares_fkey;
+ALTER TABLE shares             ADD  CONSTRAINT shares_user_shares_fkey
+    FOREIGN KEY (user_shares) REFERENCES users (id) ON DELETE SET NULL;
+
+ALTER TABLE metadata           DROP CONSTRAINT IF EXISTS metadata_file_id_fkey;
+ALTER TABLE metadata           ADD  CONSTRAINT metadata_file_id_fkey
+    FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE NO ACTION;
+
+ALTER TABLE direct_links       DROP CONSTRAINT IF EXISTS direct_links_file_id_fkey;
+ALTER TABLE direct_links       ADD  CONSTRAINT direct_links_file_id_fkey
+    FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE NO ACTION;
+
+ALTER TABLE tasks              DROP CONSTRAINT IF EXISTS tasks_user_tasks_fkey;
+ALTER TABLE tasks              ADD  CONSTRAINT tasks_user_tasks_fkey
+    FOREIGN KEY (user_tasks) REFERENCES users (id) ON DELETE SET NULL;
+
+-- \u8BF4\u660E\uFF1A\u539F\u7248 storage_policies.node_id \u6307\u5411 nodes \u8868\u3002\u8FB9\u7F18\u7248\u6CA1\u6709\u591A\u8282\u70B9\uFF0C
+-- \u8BE5\u5217\u4FDD\u7559\u4E3A\u666E\u901A\u53EF\u7A7A\u6574\u6570\uFF08\u4E0D\u5EFA\u5916\u952E\uFF09\uFF0C\u4EE5\u4FBF\u5C06\u6765\u9700\u8981\u65F6\u517C\u5BB9\u539F\u8868\u7ED3\u6784\u3002
+
+`;var P_=`-- =============================================================================
+-- 0002 \u2014\u2014 \u7BA1\u7406\u540E\u53F0\u5185\u5BB9\u8868\u4E0E OAuth \u5E94\u7528
+--
+-- \u8865\u4E09\u5F20\u8868\uFF0C\u8BA9\u5B98\u65B9\u524D\u7AEF\u7684\u7BA1\u7406\u9875\u9762\u4E0D\u518D\u662F 404\uFF1A
+--   oauth_clients / oauth_grants \u2014\u2014 \u7BA1\u7406\u540E\u53F0\u300COAuth \u5E94\u7528\u300D\u9875 + \u6388\u6743\u9875
+--   nodes                        \u2014\u2014 \u7BA1\u7406\u540E\u53F0\u300C\u8282\u70B9\u300D\u9875\uFF08\u8FB9\u7F18\u7248\u6C38\u8FDC\u662F\u7A7A\u5217\u8868\uFF09
+--
+-- \u5217\u540D\u4E25\u683C\u5BF9\u9F50\u4E0A\u6E38 ent schema\uFF08ent/schema/oauthclient.go\u3001oauthgrant.go\uFF09\uFF0C
+-- \u524D\u7AEF\u5B57\u6BB5\u540D\u76F4\u63A5\u53D6\u8FD9\u4E9B\u5217\u540D\u7684 JSON \u5F62\u6001\uFF0C\u6539\u540D\u4F1A\u8BA9\u7BA1\u7406\u9875\u9759\u9ED8\u8BFB\u4E0D\u5230\u503C\u3002
+--
+-- \u6CE8\u610F\uFF1Ascripts/migrate.mjs \u6309\u5206\u53F7\u6734\u7D20\u5207\u5206\u8BED\u53E5\uFF0C\u4E14\u4F1A\u5265\u6389 \`--\` \u4E4B\u540E\u7684\u5185\u5BB9\u3002
+-- \u56E0\u6B64\u672C\u6587\u4EF6\u91CC\u4E0D\u8981\u51FA\u73B0\u5B57\u7B26\u4E32\u5B57\u9762\u91CF\u5305\u4F4F\u7684\u5206\u53F7\uFF0C\u4E5F\u4E0D\u8981\u7528 dollar-quoted \u5757\u3002
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- OAuth \u5E94\u7528\uFF08\u7B2C\u4E09\u65B9\u63A5\u5165 Cloudreve \u7684\u5BA2\u6237\u7AEF\uFF09
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS oauth_clients (
+    id            SERIAL PRIMARY KEY,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at    TIMESTAMPTZ,
+    guid          TEXT NOT NULL,
+    secret        TEXT NOT NULL,
+    name          TEXT NOT NULL,
+    homepage_url  TEXT,
+    redirect_uris JSONB NOT NULL DEFAULT '[]'::jsonb,
+    scopes        JSONB NOT NULL DEFAULT '[]'::jsonb,
+    props         JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_enabled    BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS oauthclient_guid ON oauth_clients (guid);
+
+-- ---------------------------------------------------------------------------
+-- \u7528\u6237\u5BF9 OAuth \u5E94\u7528\u7684\u6388\u6743\u8BB0\u5F55\u3002user_id + client_id \u552F\u4E00\uFF08\u539F\u7248\u5C31\u662F\u8FD9\u4E48\u7EA6\u675F\u7684\uFF09\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS oauth_grants (
+    id           SERIAL PRIMARY KEY,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at   TIMESTAMPTZ,
+    user_id      INTEGER NOT NULL,
+    client_id    INTEGER NOT NULL,
+    scopes       JSONB NOT NULL DEFAULT '[]'::jsonb,
+    last_used_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS oauthgrant_user_id_client_id ON oauth_grants (user_id, client_id);
+CREATE INDEX IF NOT EXISTS oauthgrant_client_id ON oauth_grants (client_id);
+
+-- ---------------------------------------------------------------------------
+-- \u8282\u70B9\u3002\u8FB9\u7F18\u7248\u662F\u5355\u4F53 Worker\uFF0C\u6CA1\u6709 master/slave \u6982\u5FF5\uFF0C\u8FD9\u5F20\u8868\u53EA\u4F1A\u662F\u7A7A\u7684\uFF1B
+-- \u5EFA\u5B83\u662F\u4E3A\u4E86\u8BA9\u7BA1\u7406\u540E\u53F0\u300C\u8282\u70B9\u300D\u9875\u9762\u6B63\u5E38\u6E32\u67D3\u7A7A\u5217\u8868\uFF0C\u800C\u4E0D\u662F\u629B 404\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS nodes (
+    id              SERIAL PRIMARY KEY,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL DEFAULT 'slave',
+    server          TEXT,
+    slave_key       TEXT,
+    capabilities    TEXT,
+    weight          INTEGER,
+    status          TEXT NOT NULL DEFAULT 'inactive',
+    storage_policy_nodes INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS node_storage_policy_nodes ON nodes (storage_policy_nodes);
+
+-- ---------------------------------------------------------------------------
+-- \u5916\u952E
+-- ---------------------------------------------------------------------------
+ALTER TABLE oauth_grants DROP CONSTRAINT IF EXISTS oauth_grants_user_id_fkey;
+ALTER TABLE oauth_grants ADD  CONSTRAINT oauth_grants_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
+
+ALTER TABLE oauth_grants DROP CONSTRAINT IF EXISTS oauth_grants_client_id_fkey;
+ALTER TABLE oauth_grants ADD  CONSTRAINT oauth_grants_client_id_fkey
+    FOREIGN KEY (client_id) REFERENCES oauth_clients (id) ON DELETE CASCADE;
+
+ALTER TABLE nodes DROP CONSTRAINT IF EXISTS nodes_storage_policy_nodes_fkey;
+ALTER TABLE nodes ADD  CONSTRAINT nodes_storage_policy_nodes_fkey
+    FOREIGN KEY (storage_policy_nodes) REFERENCES storage_policies (id) ON DELETE SET NULL;
+`;var U_=`-- =============================================================================
+-- 0003 \u2014\u2014 WebDAV \u8D26\u53F7\u4E0E Passkey
+--
+-- dav_accounts \u2014\u2014 WebDAV \u8D26\u53F7\uFF08/api/v4/devices/dav + /dav \u534F\u8BAE\u7AEF\u70B9\uFF09
+-- passkeys     \u2014\u2014 WebAuthn \u51ED\u636E\uFF08/api/v4/user/authn + /session/authn\uFF09
+--
+-- \u5217\u540D\u4E25\u683C\u5BF9\u9F50\u4E0A\u6E38 ent schema\uFF08ent/schema/davaccount.go\u3001passkey.go\uFF09\u3002
+-- \u6CE8\u610F\uFF1Ascripts/migrate.mjs \u6309\u5206\u53F7\u6734\u7D20\u5207\u5206\u8BED\u53E5\uFF0C\u4E14\u4F1A\u5265\u6389 \`--\` \u4E4B\u540E\u7684\u5185\u5BB9\u3002
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- WebDAV \u8D26\u53F7\u3002options \u662F boolset \u7684 bytea\uFF08bit 0=readonly 1=proxy 2=disable_sys_files\uFF0C
+-- \u4E0E\u4E0A\u6E38 inventory/types \u7684 DavAccountReadOnly/Proxy/DisableSysFiles \u987A\u5E8F\u4E00\u81F4\uFF09\u3002
+-- owner_id + password \u552F\u4E00 \u2014\u2014 \u4E0A\u6E38\u7528\u8FD9\u4E2A\u7D22\u5F15\u505A Basic Auth \u67E5\u8BE2\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dav_accounts (
+    id          SERIAL PRIMARY KEY,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ,
+    name        TEXT NOT NULL,
+    uri         TEXT NOT NULL,
+    password    TEXT NOT NULL,
+    options     BYTEA NOT NULL,
+    props       JSONB NOT NULL DEFAULT '{}'::jsonb,
+    owner_id    INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS davaccount_owner_id_password ON dav_accounts (owner_id, password);
+CREATE INDEX IF NOT EXISTS davaccount_owner_id ON dav_accounts (owner_id);
+
+-- ---------------------------------------------------------------------------
+-- WebAuthn / Passkey \u51ED\u636E\u3002credential \u5B58 JSON\uFF08webauthn.Credential \u7684\u5E8F\u5217\u5316\u5F62\u6001\uFF1A
+-- id / public_key(\u57FA64) / attestation_type / transport / flags \u7B49\uFF09\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS passkeys (
+    id            SERIAL PRIMARY KEY,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at    TIMESTAMPTZ,
+    user_id       INTEGER NOT NULL,
+    credential_id TEXT NOT NULL,
+    name          TEXT NOT NULL,
+    credential    JSONB NOT NULL,
+    used_at       TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS passkey_user_id_credential_id ON passkeys (user_id, credential_id);
+CREATE INDEX IF NOT EXISTS passkey_credential_id ON passkeys (credential_id);
+`;var D_=`-- =============================================================================
+-- 0004 \u2014\u2014 \u8282\u70B9\uFF08admin/node\uFF09\u8865\u9F50
+--
+-- \u4E0A\u6E38 ent/schema/node.go\uFF1Astatus \u662F active/suspended \u4E8C\u503C\u679A\u4E3E\u3001settings \u662F
+-- NodeSetting JSON\uFF08aria2 / qBittorrent \u4E0B\u8F7D\u5668\u914D\u7F6E\uFF09\u30020002 \u5EFA\u8868\u65F6 status
+-- \u9ED8\u8BA4\u503C\u5199\u6210\u4E86 'inactive'\uFF0C\u8FD9\u91CC\u5BF9\u9F50\uFF0C\u5E76\u8865\u4E0A\u7F3A\u5931\u7684 settings \u5217\u3002
+-- =============================================================================
+
+ALTER TABLE nodes DROP COLUMN IF EXISTS status;
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+
+ALTER TABLE nodes ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb;
+`;var L_=`-- 0005: \u652F\u4ED8\u4F53\u7CFB\uFF08\u8FB9\u7F18\u7248\u81EA\u5EFA Pro \u529F\u80FD\uFF09
+-- \u5BF9\u5E94\u524D\u7AEF\u589E\u503C\u670D\u52A1\uFF1A\u5546\u5E97 / \u8BA2\u5355 / \u793C\u54C1\u5361 / \u652F\u4ED8\u63D0\u4F9B\u5546\uFF08\u6613\u652F\u4ED8\u534F\u8BAE\uFF09\u3002
+-- \u4E0A\u6E38\u95ED\u6E90 Pro \u7684\u8868\u7ED3\u6784\u4E0D\u53EF\u5F97\uFF0C\u8FD9\u91CC\u6309\u524D\u7AEF\u6D88\u8D39\u7684\u5F62\u72B6\u81EA\u5EFA\uFF1A
+--   orders     \u2014\u2014 \u652F\u4ED8\u8BA2\u5355\uFF08\u4E0B\u5355 \u2192 \u652F\u4ED8\u56DE\u8C03 \u2192 \u5C65\u884C\uFF09
+--   gift_codes \u2014\u2014 \u793C\u54C1\u5361\uFF08\u7BA1\u7406\u5458\u6279\u91CF\u751F\u6210\uFF0C\u7528\u6237\u5151\u6362\uFF0C\u8D70\u540C\u4E00\u5C65\u884C\u903B\u8F91\uFF09
+
+CREATE TABLE IF NOT EXISTS orders (
+    id                SERIAL PRIMARY KEY,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ,
+    user_id           INTEGER     NOT NULL,
+    order_no          TEXT        NOT NULL,
+    product_type      TEXT        NOT NULL CHECK (product_type IN ('storage', 'group', 'credit')),
+    -- \u4E0B\u5355\u65F6\u7684\u5546\u54C1\u5FEB\u7167\uFF08\u5546\u54C1\u968F\u540E\u53EF\u80FD\u88AB\u6539/\u5220\uFF0C\u5C65\u884C\u4EE5\u5FEB\u7167\u4E3A\u51C6\uFF09
+    product_snapshot  JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    amount            BIGINT      NOT NULL DEFAULT 0,  -- \u5355\u4F4D\uFF1A\u5206
+    status            TEXT        NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending', 'paid', 'fulfilled', 'failed', 'canceled')),
+    provider          TEXT        NOT NULL DEFAULT '',
+    provider_trade_no TEXT,
+    paid_at           TIMESTAMPTZ,
+    fulfilled_at      TIMESTAMPTZ,
+    error             TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS orders_order_no ON orders (order_no);
+CREATE INDEX IF NOT EXISTS orders_user_id ON orders (user_id);
+
+CREATE TABLE IF NOT EXISTS gift_codes (
+    id              SERIAL PRIMARY KEY,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at      TIMESTAMPTZ,
+    code            TEXT        NOT NULL,
+    product_type    TEXT        NOT NULL CHECK (product_type IN ('storage', 'group', 'credit')),
+    product_payload JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    batch           TEXT,
+    used_by         INTEGER,
+    used_at         TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS gift_codes_code ON gift_codes (code);
+CREATE INDEX IF NOT EXISTS gift_codes_batch ON gift_codes (batch);
+`;var O_=`-- 0006: \u5BA1\u8BA1\u65E5\u5FD7\uFF08\u8FB9\u7F18\u7248\u81EA\u5EFA Pro \u529F\u80FD\uFF09
+-- \u5BF9\u5E94\u524D\u7AEF\u7BA1\u7406\u8BBE\u7F6E\u300C\u4E8B\u4EF6\u300D\u6807\u7B7E\uFF08Event/Events.tsx\uFF09\u7684 62 \u79CD AuditLogType\uFF080-61\uFF09\u3002
+-- \u4E0A\u6E38\u95ED\u6E90 Pro \u7684\u8868\u7ED3\u6784\u4E0D\u53EF\u5F97\uFF0C\u8FD9\u91CC\u6309\u81EA\u5EFA\u9700\u8981\u8BBE\u8BA1\uFF1A
+--   audit_logs \u2014\u2014 \u5BA1\u8BA1\u4E8B\u4EF6\u6D41\u6C34\uFF08type \u4E3A\u524D\u7AEF AuditLogType \u679A\u4E3E\u6570\u503C\uFF09
+--
+-- \u5199\u5165\u8D70 logAudit()\uFF08services/audit.ts\uFF09\uFF0C\u6309 audit_log_events \u8BBE\u7F6E\u5F00\u5173\u8FC7\u6EE4\uFF0C
+-- \u7ECF waitUntil \u5F02\u6B65\u63D2\u5165\uFF0C\u4E0D\u963B\u585E\u8BF7\u6C42\u8DEF\u5F84\u3002
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id         BIGSERIAL   PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    user_id    INTEGER,
+    type       INTEGER     NOT NULL,
+    meta       JSONB       NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS audit_logs_created_at ON audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_type ON audit_logs (type);
+CREATE INDEX IF NOT EXISTS audit_logs_user_id ON audit_logs (user_id);
+`;var $_=`-- ---------------------------------------------------------------------------
+-- \u4ED8\u8D39\u5206\u4EAB\uFF08edge \u81EA\u5EFA Pro \u529F\u80FD\uFF09
+--   shares.score            INT  \u5206\u4EAB\u4EF7\u683C\uFF08\u79EF\u5206\uFF09\uFF0C0 \u8868\u793A\u514D\u8D39\u5206\u4EAB
+--   share_purchases         \u8D2D\u4E70\u8BB0\u5F55\uFF08\u8C01\u4E3A\u54EA\u4E2A\u5206\u4EAB\u4ED8\u4E86\u591A\u5C11\uFF09\uFF0C(share_id,user_id) \u552F\u4E00
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE shares ADD COLUMN IF NOT EXISTS score INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS share_purchases (
+    id          SERIAL PRIMARY KEY,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    share_id    INTEGER NOT NULL,
+    user_id     INTEGER NOT NULL,
+    amount      INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT share_purchases_unique UNIQUE (share_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS share_purchases_share ON share_purchases (share_id);
+CREATE INDEX IF NOT EXISTS share_purchases_user ON share_purchases (user_id);
+`;var F_=`-- ---------------------------------------------------------------------------
+-- OIDC \u7B2C\u4E09\u65B9\u767B\u5F55\u7ED1\u5B9A\uFF08edge \u81EA\u5EFA\u5B9E\u73B0\uFF09\u3002
+--
+-- \u5B98\u65B9\u5F00\u6E90\u7248\u628A\u300C\u7B2C\u4E09\u65B9\u767B\u5F55\u300D\u505A\u6210\u7EAF Pro \u88C5\u9970\u4F4D\uFF1A\u524D\u7AEF\u4E09\u4E2A checkbox \u5168\u90E8
+-- checked={false} \u4E14\u65E0 onChange\uFF0C\u540E\u7AEF\u4E5F\u6CA1\u6709\u6D88\u8D39\u8005\u4FA7\u6D41\u7A0B\u3002\u8FB9\u7F18\u7248\u8865\u9F50\u4E86
+-- \u901A\u7528 OIDC \u6388\u6743\u7801\u767B\u5F55\uFF08service/oidc.ts\uFF09\uFF0C\u672C\u8868\u8BB0\u5F55\u5916\u90E8\u8EAB\u4EFD\u4E0E\u672C\u5730\u8D26\u53F7\u7684\u7ED1\u5B9A\u3002
+--
+-- \u72EC\u7ACB\u6210\u8868\uFF08\u800C\u4E0D\u662F\u5728 users \u4E0A\u52A0\u5217\uFF09\u7684\u7406\u7531\uFF1A\u4E00\u4E2A\u7528\u6237\u53EF\u7ED1\u5B9A\u591A\u4E2A IdP\uFF0C
+-- \u540E\u7EED\u63A5\u5165\u66F4\u591A provider\uFF08QQ / Logto / Keycloak\u2026\uFF09\u65E0\u9700\u518D\u6539\u8868\u7ED3\u6784\u3002
+--   subject = IdP \u4FA7\u7A33\u5B9A\u7528\u6237\u6807\u8BC6\uFF08OIDC \u7684 sub\uFF09
+--   issuer  = IdP \u7684 issuer\uFF08\u540C\u4E00 subject \u5728\u4E0D\u540C IdP \u4E0B\u542B\u4E49\u4E0D\u540C\uFF0C\u6545\u9700\u4E00\u8D77\u552F\u4E00\uFF09
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_oidc_bindings (
+    id          SERIAL PRIMARY KEY,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    user_id     INTEGER     NOT NULL,
+    issuer      TEXT        NOT NULL,
+    subject     TEXT        NOT NULL,
+    email       TEXT,
+    last_login  TIMESTAMPTZ
+);
+
+-- \u540C\u4E00 IdP \u4E0B\u540C\u4E00 subject \u53EA\u80FD\u7ED1\u5B9A\u4E00\u4E2A\u672C\u5730\u8D26\u53F7
+CREATE UNIQUE INDEX IF NOT EXISTS user_oidc_bindings_issuer_subject
+    ON user_oidc_bindings (issuer, subject);
+
+CREATE INDEX IF NOT EXISTS user_oidc_bindings_user
+    ON user_oidc_bindings (user_id);
+`;var M_=`-- ---------------------------------------------------------------------------
+-- \u8865\u9F50 group_storage_policies \u5230\u8FC1\u79FB\u5C42
+--
+-- \u8FD9\u5F20\u8868\u539F\u5148**\u53EA\u5728 src/db/provision.ts \u91CC\u7528 CREATE TABLE IF NOT EXISTS \u5EFA**
+-- \uFF08\u81EA\u4E3E\u65F6\u968F seedSystemData \u4E00\u8D77\u6267\u884C\uFF09\uFF0Cmigrations/*.sql \u91CC\u6839\u672C\u6CA1\u6709\u5B83\u3002
+--
+-- \u540E\u679C\uFF08\u771F\u5B9E\u6545\u969C\uFF09\uFF1A\`scripts/db-sync.mjs\` \u7684\u300C\u5907\u5E93\u5EFA\u8868\u300D\u5982\u679C\u53EA\u6309
+-- migrations/*.sql \u5EFA\u5E93\uFF0C\u5907\u5E93\u5C31\u4F1A**\u7F3A\u8FD9\u4E00\u5F20\u8868** \u2192 \u8BE5\u8868\u7684\u6570\u636E\u6C38\u8FDC\u540C\u6B65\u4E0D\u8FC7\u53BB
+-- \uFF08\u751A\u81F3\u6574\u4E2A\u5907\u5E93\u540C\u6B65\u88AB\u5224\u4E3A\u7ED3\u6784\u4E0D\u5B8C\u6574\uFF09\u3002\u8FD9\u6B63\u662F\u300C\u914D\u4E86 5 \u4E2A\u5E93\u5374\u53EA\u6709\u4E00\u4E2A\u80FD\u771F\u6B63
+-- \u7528\u4E0A\u300D\u7684\u9690\u85CF\u539F\u56E0\u4E4B\u4E00\u3002
+--
+-- \u8FC1\u5230\u8FD9\u91CC\u4E4B\u540E\uFF0Cmigrations/*.sql \u6210\u4E3A\u5EFA\u8868\u7684**\u552F\u4E00\u4E8B\u5B9E\u6765\u6E90**\uFF1B
+-- provision.ts \u91CC\u90A3\u6BB5\u4FDD\u7559\uFF08\u5E42\u7B49\uFF09\uFF0C\u4F5C\u4E3A\u5B58\u91CF\u5E93\u7684\u515C\u5E95\uFF0C\u4E0D\u4F1A\u4E0E\u65B0\u8FC1\u79FB\u51B2\u7A81\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS group_storage_policies (
+    group_id  INTEGER NOT NULL,
+    policy_id INTEGER NOT NULL,
+    PRIMARY KEY (group_id, policy_id)
+);
+
+-- \u5E42\u7B49\u56DE\u586B\uFF1A\u628A groups.storage_policy_id \u8FD9\u4E2A\u65E7\u7684\u5355\u7B56\u7565\u5B57\u6BB5\u704C\u8FDB\u5173\u8054\u8868\u3002
+-- \u4E0A\u6E38 GetByGroup\uFF08inventory/policy.go:145\uFF09\u5047\u5B9A\u6BCF\u4E2A\u7EC4\u90FD\u6709\u7B56\u7565\uFF0C
+-- \u7EC4\u53EA\u7ED1\u4E00\u4E2A\u7B56\u7565\u65F6\u8FD9\u91CC\u5C31\u662F\u90A3\u4E00\u6761\u3002
+INSERT INTO group_storage_policies (group_id, policy_id)
+SELECT id, storage_policy_id FROM groups
+WHERE storage_policy_id IS NOT NULL
+ON CONFLICT (group_id, policy_id) DO NOTHING;
+`;var q_=`-- ---------------------------------------------------------------------------
+-- \u5F52\u6863\u8868\uFF08archive_entries\uFF09
+--
+-- ## \u4E3A\u4EC0\u4E48\u9700\u8981\u5B83
+--
+-- \u7528\u6237\u73B0\u6709 5 \u4E2A Neon\u3002\u300C5 \u4E2A\u5E93\u5168\u90E8\u5F53\u4E3B\u5E93\u7528\u300D\u5728\u67B6\u6784\u4E0A\u4E0D\u6210\u7ACB\uFF08Neon \u514D\u8D39\u6863
+-- \u6CA1\u6709\u591A\u4E3B\u590D\u5236\uFF0C\u505A\u6210 5 \u5199\u5FC5\u7136\u5206\u88C2\uFF09\u3002\u6240\u4EE5\u7ED9\u5907\u5E93\u4E00\u4E2A**\u5929\u7136\u4E0D\u4F1A\u51B2\u7A81\u7684
+-- \u7528\u9014**\uFF1A\u5B58\u5F52\u6863\u8868\u3002\u5F52\u6863\u662F\u300C\u53EA\u589E\u4E0D\u6539\u300D\u7684\uFF0C\u591A\u4E2A\u5E93\u5404\u5B58\u4E00\u4EFD\u4E5F\u4E0D\u4F1A\u4E92\u76F8\u77DB\u76FE\u3002
+--
+-- ## \u53EA\u589E\u4E0D\u6539 = \u6570\u636E\u8868\u63D2\u5165\u540E\u4E0D\u8BB8\u4FEE\u6539/\u5220\u9664
+--
+-- \u8FD9\u662F\u672C\u6587\u4EF6\u7684\u91CD\u70B9\u3002\u5F52\u6863\u7684\u4EF7\u503C\u5168\u5728\u300C\u53EF\u4FE1\u300D\u4E8C\u5B57 \u2014\u2014 \u5982\u679C\u80FD\u88AB\u9759\u9ED8\u6539\u5199\uFF0C
+-- \u5B83\u5C31\u4E0D\u80FD\u7528\u6765\u6838\u5BF9\u300C\u5F53\u65F6\u5230\u5E95\u662F\u4EC0\u4E48\u503C\u300D\u3002
+--
+-- SQL \u5C42\u7528\u4E09\u79CD\u624B\u6BB5\u9501\u6B7B\uFF1A
+--   1. **\u4E3B\u952E \`entry_id\`**\uFF08\u5E94\u7528\u751F\u6210\u7684 UUID\uFF09\uFF1A\u91CD\u590D\u63D2\u5165\u540C\u4E00 id \u76F4\u63A5\u51B2\u7A81\uFF0C
+--      \u4E0D\u4F1A\u8986\u76D6\u5DF2\u6709\u5F52\u6863\u3002
+--   2. **\u552F\u4E00\u7EA6\u675F \`(kind, object_id, at)\`**\uFF1A\u540C\u4E00\u5BF9\u8C61\u540C\u4E00\u65F6\u523B\u53EA\u80FD\u6709\u4E00\u6761\uFF0C
+--      \u9632\u6B62\u91CD\u653E\u4EA7\u751F\u91CD\u590D\u3002
+--   3. **\u89E6\u53D1\u5668 \`BEFORE UPDATE OR DELETE\` \u76F4\u63A5 RAISE**\uFF1A\u4EFB\u4F55 UPDATE/DELETE
+--      \u90FD\u88AB\u6570\u636E\u5E93\u62D2\u7EDD\u3002\u8FD9\u662F\u771F\u6B63\u7684\u300C\u53EA\u589E\u4E0D\u6539\u300D\u2014\u2014 \u5E94\u7528\u5C42\u6F0F\u5199\u68C0\u67E5\u4E5F\u6539\u4E0D\u52A8\u3002
+--
+-- \u9700\u8981\u5220\u6570\u636E\u65F6\u7684\u505A\u6CD5\uFF1A\u6574\u8868 \`TRUNCATE\`\uFF08\u8FD0\u7EF4\u64CD\u4F5C\uFF0C\u4E0D\u8D70\u5E94\u7528\uFF09\u3002
+-- \u4E0D\u7ED9\u5E94\u7528\u7559\u4EFB\u4F55\u300C\u6084\u6084\u6539\u4E00\u6761\u300D\u7684\u5165\u53E3\u3002
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS archive_entries (
+    -- \u5E94\u7528\u751F\u6210\u7684 UUID\uFF08\u4E0D\u662F\u81EA\u589E\uFF09\uFF1A\u8DE8\u5E93\u5408\u5E76\u65F6\u4E0D\u4F1A\u649E id\u3002
+    entry_id     TEXT        PRIMARY KEY,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- \u5F52\u6863\u5BF9\u8C61\u7684\u7C7B\u522B\u4E0E\u6807\u8BC6\uFF0C\u5982 ('settings','global') / ('user','42')
+    kind         TEXT        NOT NULL,
+    object_id    TEXT        NOT NULL,
+    -- **\u4E1A\u52A1\u53D1\u751F\u65F6\u95F4**\uFF08\u4E0D\u662F\u5165\u5E93\u65F6\u95F4\uFF09\u2014\u2014 \u56DE\u653E\u5386\u53F2\u65F6\u8981\u4EE5\u5B83\u4E3A\u51C6\u3002
+    at           TIMESTAMPTZ NOT NULL,
+    -- \u88AB\u5F52\u6863\u7684\u503C\uFF08\u65E7\u503C\uFF09\u3002jsonb \u4EE5\u4FBF\u5C06\u6765\u6309\u5B57\u6BB5\u67E5\u8BE2\u3002
+    value        JSONB       NOT NULL,
+    -- \u8C01\u89E6\u53D1\u7684\uFF08\u7528\u6237 id / 'system' / 'cron'\uFF09
+    actor        TEXT,
+    note         TEXT,
+    -- \u6570\u636E\u6765\u6E90\u5E93\u6807\u8BC6\uFF081=\u4E3B\u5E93\uFF0C2..=\u5907\u5E93\uFF09\uFF0C\u6392\u67E5\u300C\u8FD9\u6761\u662F\u54EA\u6765\u7684\u300D\u7528
+    source       INTEGER     NOT NULL DEFAULT 1
+);
+
+-- \u540C\u4E00\u5BF9\u8C61\u540C\u4E00\u65F6\u523B\u53EA\u80FD\u6709\u4E00\u6761 \u2014\u2014 \u9632\u91CD\u653E\u3002
+CREATE UNIQUE INDEX IF NOT EXISTS archive_entries_kind_object_at
+    ON archive_entries (kind, object_id, at);
+
+-- \u67E5\u67D0\u5BF9\u8C61\u7684\u5386\u53F2\uFF08\u6700\u65B0\u5728\u524D\uFF09
+CREATE INDEX IF NOT EXISTS archive_entries_lookup
+    ON archive_entries (kind, object_id, at DESC);
+
+-- ---------------------------------------------------------------------------
+-- \u53EA\u589E\u4E0D\u6539\uFF1A\u6570\u636E\u5E93\u5C42\u62D2\u7EDD UPDATE / DELETE
+--
+-- \u7528\u89E6\u53D1\u5668\u800C\u4E0D\u662F\u300C\u9760\u5E94\u7528\u5C42\u81EA\u89C9\u300D\u2014\u2014\u5E94\u7528\u5C42\u6709 30+ \u5904\u5199\u8DEF\u5F84\uFF0C\u9760\u81EA\u89C9\u5FC5\u7136\u6F0F\u3002
+-- \u8FD9\u91CC\u76F4\u63A5\u8BA9\u6570\u636E\u5E93\u6210\u4E3A\u6700\u540E\u4E00\u9053\u9632\u7EBF\uFF1A\u4EFB\u4F55\u8BD5\u56FE\u4FEE\u6539\u5F52\u6863\u7684\u8BED\u53E5\u90FD\u4F1A\u629B\u5F02\u5E38\u3002
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION archive_entries_immutable()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'archive_entries is append-only: % is not allowed', TG_OP
+        USING HINT = '\u5F52\u6863\u4E0D\u53EF\u4FEE\u6539/\u5220\u9664\u3002\u786E\u9700\u6E05\u7406\u8BF7\u6574\u8868 TRUNCATE\uFF08\u8FD0\u7EF4\u64CD\u4F5C\uFF09\u3002';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS archive_entries_no_update ON archive_entries;
+CREATE TRIGGER archive_entries_no_update
+    BEFORE UPDATE ON archive_entries
+    FOR EACH ROW EXECUTE FUNCTION archive_entries_immutable();
+
+DROP TRIGGER IF EXISTS archive_entries_no_delete ON archive_entries;
+CREATE TRIGGER archive_entries_no_delete
+    BEFORE DELETE ON archive_entries
+    FOR EACH ROW EXECUTE FUNCTION archive_entries_immutable();
+`;var B_=`-- 0011: \u5B58\u91CF\u90E8\u7F72\u7684 file_viewers \u662F\u81EA\u4E3E\u64AD\u79CD\u7684\u7A7A\u6570\u7EC4\uFF0C\u524D\u7AEF\u300C\u6253\u5F00\u65B9\u5F0F\u300D\u83DC\u5355
+-- \u6574\u4E2A\u4E3A\u7A7A\uFF08\u89C6\u9891/PPT/\u56FE\u7247\u7B49\u5168\u90E8\u53EA\u80FD\u4E0B\u8F7D\uFF09\u3002\u628A\u5B83\u56DE\u586B\u4E3A\u4E0E\u4E0A\u6E38
+-- inventory/setting.go defaultFileViewers \u4E00\u81F4\u7684 13 \u67E5\u770B\u5668\u9ED8\u8BA4\u96C6\u3002
+-- \u53EA\u8986\u76D6\u6070\u597D\u4E3A '[]' \u7684\u884C\uFF1A\u7BA1\u7406\u5458\u81EA\u5B9A\u4E49\u8FC7\u7684\u914D\u7F6E\u4E0D\u52A8\uFF1B\u65B0\u90E8\u7F72\u7531
+-- defaults.ts \u7684 DEFAULT_SETTINGS.file_viewers \u64AD\u79CD\u540C\u4E00\u5957\uFF0C\u672C\u8BED\u53E5\u81EA\u7136\u7A7A\u8DD1\u3002
+UPDATE settings SET value = '[{"viewers":[{"id":"music","type":"builtin","display_name":"fileManager.musicPlayer","exts":["mp3","ogg","wav","flac","m4a"]},{"id":"epub","type":"builtin","display_name":"fileManager.epubViewer","exts":["epub"]},{"id":"googledocs","type":"custom","display_name":"fileManager.googledocs","icon":"/static/img/viewers/gdrive.png","url":"https://docs.google.com/gview?url={$src}&embedded=true","exts":["jpeg","png","gif","tiff","bmp","webm","mpeg4","3gpp","mov","avi","mpegps","wmv","flv","txt","css","html","php","c","cpp","h","hpp","js","doc","docx","xls","xlsx","ppt","pptx","pdf","pages","ai","psd","tiff","dxf","svg","eps","ps","ttf","xps"],"max_size":26214400},{"id":"m365online","type":"custom","display_name":"fileManager.m365viewer","icon":"/static/img/viewers/m365.svg","url":"https://view.officeapps.live.com/op/view.aspx?src={$src}","exts":["doc","docx","docm","dotm","dotx","xlsx","xlsb","xls","xlsm","pptx","ppsx","ppt","pps","pptm","potm","ppam","potx","ppsm"],"max_size":10485760},{"id":"pdf","type":"builtin","display_name":"fileManager.pdfViewer","exts":["pdf"]},{"id":"video","type":"builtin","icon":"/static/img/viewers/artplayer.png","display_name":"Artplayer","exts":["mp4","mkv","webm","avi","mov","m3u8","flv"]},{"id":"markdown","type":"builtin","display_name":"fileManager.markdownEditor","exts":["md"],"templates":[{"ext":"md","display_name":"Markdown"}]},{"id":"drawio","type":"builtin","icon":"/static/img/viewers/drawio.svg","display_name":"draw.io","exts":["drawio","dwb"],"props":{"host":"https://embed.diagrams.net"},"templates":[{"ext":"drawio","display_name":"fileManager.diagram"},{"ext":"dwb","display_name":"fileManager.whiteboard"}]},{"id":"image","type":"builtin","display_name":"fileManager.imageViewer","exts":["bmp","png","gif","jpg","jpeg","svg","webp","heic","heif"]},{"id":"monaco","type":"builtin","icon":"/static/img/viewers/monaco.svg","display_name":"fileManager.monacoEditor","exts":["md","txt","json","php","py","bat","c","h","cpp","hpp","cs","css","dockerfile","go","html","htm","ini","java","js","jsx","less","lua","sh","sql","xml","yaml"],"templates":[{"ext":"txt","display_name":"fileManager.text"}]},{"id":"photopea","type":"builtin","icon":"/static/img/viewers/photopea.png","display_name":"Photopea","exts":["psd","ai","indd","xcf","xd","fig","kri","clip","pxd","pxz","cdr","ufo","afphoyo","svg","esp","pdf","pdn","wmf","emf","png","jpg","jpeg","gif","webp","ico","icns","bmp","avif","heic","jxl","ppm","pgm","pbm","tiff","dds","iff","anim","tga","dng","nef","cr2","cr3","arw","rw2","raf","orf","gpr","3fr","fff"]},{"id":"excalidraw","type":"builtin","icon":"/static/img/viewers/excalidraw.svg","display_name":"Excalidraw","exts":["excalidraw"],"templates":[{"ext":"excalidraw","display_name":"Excalidraw"}]},{"id":"archive","type":"builtin","display_name":"fileManager.archivePreview","exts":["zip","7z"],"required_group_permission":[5]}]}]' WHERE name = 'file_viewers' AND value = '[]';
+`;var H_=`-- 0012: file_viewers \u810F\u6570\u636E\u515C\u5E95\u56DE\u586B\u30020011 \u53EA\u5339\u914D value='[]'\uFF0C\u4F46\u5B58\u91CF\u5E93\u91CC
+-- \u7684\u771F\u5B9E\u503C\u662F\u300C\u975E\u7A7A\u3001\u89E3\u6790\u4E3A\u7A7A\u96C6\u3001\u4F46\u4E0D\u5B8C\u5168\u7B49\u4E8E '[]'\u300D\u7684\u5F62\u6001\uFF08\u5982 '[ ]' /
+-- 'null' / '[{"viewers":[]}]'\uFF09\uFF0C\u6070\u597D\u8EB2\u8FC7 0011 \u53C8\u538B\u4F4F defaults \u5C42\uFF0C
+-- \u7EBF\u4E0A\u300C\u6253\u5F00\u65B9\u5F0F\u300D\u6301\u7EED\u4E3A\u7A7A\u3002\u672C\u8FC1\u79FB\u628A\u6240\u6709\u5DF2\u77E5\u810F\u5F62\u6001\u7EDF\u4E00\u56DE\u586B\u4E3A\u9ED8\u8BA4\u96C6\uFF1B
+-- \u7BA1\u7406\u5458\u81EA\u5B9A\u4E49\u8FC7\u7684\u975E\u7A7A\u914D\u7F6E\uFF08\u542B\u5408\u6CD5\u7A7A\u7EC4\u4F46\u53E6\u6709\u975E\u7A7A\u7EC4\u7684\u914D\u7F6E\uFF09\u4E0D\u53D7\u5F71\u54CD\u3002
+-- \u8BFB\u53D6\u5C42\u53E6\u6709 parseFileViewers \u515C\u5E95\uFF08settings/fileViewers.ts\uFF09\uFF0C\u53CC\u4FDD\u9669\u3002
+UPDATE settings SET value = '[{"viewers":[{"id":"music","type":"builtin","display_name":"fileManager.musicPlayer","exts":["mp3","ogg","wav","flac","m4a"]},{"id":"epub","type":"builtin","display_name":"fileManager.epubViewer","exts":["epub"]},{"id":"googledocs","type":"custom","display_name":"fileManager.googledocs","icon":"/static/img/viewers/gdrive.png","url":"https://docs.google.com/gview?url={$src}&embedded=true","exts":["jpeg","png","gif","tiff","bmp","webm","mpeg4","3gpp","mov","avi","mpegps","wmv","flv","txt","css","html","php","c","cpp","h","hpp","js","doc","docx","xls","xlsx","ppt","pptx","pdf","pages","ai","psd","tiff","dxf","svg","eps","ps","ttf","xps"],"max_size":26214400},{"id":"m365online","type":"custom","display_name":"fileManager.m365viewer","icon":"/static/img/viewers/m365.svg","url":"https://view.officeapps.live.com/op/view.aspx?src={$src}","exts":["doc","docx","docm","dotm","dotx","xlsx","xlsb","xls","xlsm","pptx","ppsx","ppt","pps","pptm","potm","ppam","potx","ppsm"],"max_size":10485760},{"id":"pdf","type":"builtin","display_name":"fileManager.pdfViewer","exts":["pdf"]},{"id":"video","type":"builtin","icon":"/static/img/viewers/artplayer.png","display_name":"Artplayer","exts":["mp4","mkv","webm","avi","mov","m3u8","flv"]},{"id":"markdown","type":"builtin","display_name":"fileManager.markdownEditor","exts":["md"],"templates":[{"ext":"md","display_name":"Markdown"}]},{"id":"drawio","type":"builtin","icon":"/static/img/viewers/drawio.svg","display_name":"draw.io","exts":["drawio","dwb"],"props":{"host":"https://embed.diagrams.net"},"templates":[{"ext":"drawio","display_name":"fileManager.diagram"},{"ext":"dwb","display_name":"fileManager.whiteboard"}]},{"id":"image","type":"builtin","display_name":"fileManager.imageViewer","exts":["bmp","png","gif","jpg","jpeg","svg","webp","heic","heif"]},{"id":"monaco","type":"builtin","icon":"/static/img/viewers/monaco.svg","display_name":"fileManager.monacoEditor","exts":["md","txt","json","php","py","bat","c","h","cpp","hpp","cs","css","dockerfile","go","html","htm","ini","java","js","jsx","less","lua","sh","sql","xml","yaml"],"templates":[{"ext":"txt","display_name":"fileManager.text"}]},{"id":"photopea","type":"builtin","icon":"/static/img/viewers/photopea.png","display_name":"Photopea","exts":["psd","ai","indd","xcf","xd","fig","kri","clip","pxd","pxz","cdr","ufo","afphoyo","svg","esp","pdf","pdn","wmf","emf","png","jpg","jpeg","gif","webp","ico","icns","bmp","avif","heic","jxl","ppm","pgm","pbm","tiff","dds","iff","anim","tga","dng","nef","cr2","cr3","arw","rw2","raf","orf","gpr","3fr","fff"]},{"id":"excalidraw","type":"builtin","icon":"/static/img/viewers/excalidraw.svg","display_name":"Excalidraw","exts":["excalidraw"],"templates":[{"ext":"excalidraw","display_name":"Excalidraw"}]},{"id":"archive","type":"builtin","display_name":"fileManager.archivePreview","exts":["zip","7z"],"required_group_permission":[5]}]}]'
+WHERE name = 'file_viewers'
+  AND (
+    value IS NULL
+    OR btrim(value) IN ('', '[]', '[ ]', 'null', '0', 'false', 'undefined')
+    OR btrim(value) = '{"viewers":[]}'
+    OR btrim(value) = '[{"viewers":[]}]'
+    OR btrim(value) = '[{"viewers":[]},{}]'
+    OR btrim(value) = '[{},{"viewers":[]}]'
+  );
+`;var z_=`-- \u7AD9\u70B9\u7EA7\u4E00\u6B21\u6027\u72B6\u6001\uFF08\u539F\u5B50\u62A2\u5360\uFF09\u3002
+--
+-- \u76EE\u524D\u53EA\u6709\u4E00\u4E2A\u7528\u9014\uFF1A\u300C\u7B2C\u4E00\u4E2A\u7BA1\u7406\u5458\u540D\u989D\u300D\u3002\u539F\u6765\u7684\u505A\u6CD5\u662F
+--   SELECT isEmpty() \u2192 \u662F\u7A7A\u7684\u5C31 group_id = 1
+-- \u4E24\u6761\u8BED\u53E5\u4E4B\u95F4\u6CA1\u6709\u539F\u5B50\u6027\uFF1A\u4E24\u4E2A\u5E76\u53D1\u6CE8\u518C\u90FD\u4F1A\u770B\u5230\u300C\u7AD9\u70B9\u4E3A\u7A7A\u300D\uFF0C\u4E8E\u662F\u4EA7\u751F\u4E24\u4E2A\u7BA1\u7406\u5458\u3002
+-- \u7528\u4E00\u4E2A\u5E26\u4E3B\u952E\u7684\u5C0F\u8868\u505A\u6805\u680F\uFF0C\`INSERT ... ON CONFLICT DO NOTHING RETURNING\` \u5929\u7136\u539F\u5B50\uFF0C
+-- \u8C01\u62A2\u5230\u8C01\u5F53\u7BA1\u7406\u5458\u3002
+CREATE TABLE IF NOT EXISTS site_state (
+  name       TEXT PRIMARY KEY,
+  value      TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+`;var j_=`-- \u9650\u901F\u8BA1\u6570\uFF08\u767B\u5F55 / 2FA / \u6CE8\u518C / \u627E\u56DE\u5BC6\u7801 / \u5206\u4EAB\u5BC6\u7801\uFF09\u3002
+--
+-- \u4E3A\u4EC0\u4E48\u4E0D\u7528 KV\uFF1AWorkers KV \u7684\u8BFB\u662F\u6700\u7EC8\u4E00\u81F4\u7684\uFF08\u53EF\u80FD\u547D\u4E2D 60 \u79D2\u5185\u7684\u65E7\u503C\uFF09\uFF0C
+-- \u300C\u8BFB-\u52A0\u4E00-\u5199\u56DE\u300D\u5728\u8FDE\u7EED\u8BF7\u6C42\u91CC\u6C38\u8FDC\u8BFB\u5230\u521D\u59CB\u503C \u2014\u2014 \u5B9E\u6D4B 12 \u6B21\u767B\u5F55\u5C1D\u8BD5\u4E00\u6B21\u90FD\u6CA1
+-- \u89E6\u53D1\u9650\u5236\u3002\u8BA1\u6570\u5FC5\u987B\u653E\u5728\u6709\u539F\u5B50\u8BED\u4E49\u7684\u5730\u65B9\uFF0C\u6240\u4EE5\u7528\u6570\u636E\u5E93\uFF1A\u4E00\u6761
+-- \`INSERT ... ON CONFLICT DO UPDATE\` \u7531\u884C\u9501\u4E32\u884C\u5316\uFF0C\u8DE8 colo \u5171\u4EAB\u540C\u4E00\u4EFD\u8BA1\u6570\u3002
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key          TEXT PRIMARY KEY,
+  window_start BIGINT NOT NULL,
+  hits         INTEGER NOT NULL DEFAULT 1
+);
+
+-- \u6E05\u7406\u8FC7\u671F\u7A97\u53E3\u7528\uFF08cron \u987A\u5E26\u5220 window_start < now - 3600 \u7684\u884C\uFF09
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits (window_start);
+`;var W_=`-- \u5206\u4EAB\u4E3E\u62A5\uFF08edge \u81EA\u5EFA Pro \u529F\u80FD\uFF1A\u5206\u4EAB\u4E3E\u62A5\u5904\u7406\uFF09\u3002
+-- \u7528\u6237\u5BF9\u88AB\u4E3E\u62A5\u5206\u4EAB\u63D0\u4EA4 reason + detail\uFF1B\u7BA1\u7406\u5458\u5728\u540E\u53F0\u67E5\u770B\u5E76\u6807\u8BB0\u5904\u7406\u72B6\u6001\u3002
+CREATE TABLE IF NOT EXISTS share_reports (
+    id          SERIAL PRIMARY KEY,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ,
+    share_id    INTEGER NOT NULL,
+    reporter_id INTEGER,
+    reason      VARCHAR(32) NOT NULL DEFAULT 'other',
+    detail      TEXT,
+    status      VARCHAR(16) NOT NULL DEFAULT 'pending',
+    handled_by  INTEGER,
+    handled_at  TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_reports_status ON share_reports (status);
+CREATE INDEX IF NOT EXISTS idx_share_reports_share ON share_reports (share_id);
+CREATE INDEX IF NOT EXISTS idx_share_reports_created ON share_reports (created_at DESC);
+`;var G_=`-- ---------------------------------------------------------------------------
+-- \u793E\u4EA4\u767B\u5F55\u7ED1\u5B9A\uFF08edge \u81EA\u5EFA Pro \u529F\u80FD\uFF1AQQ \u4E92\u8054\u7B49 OAuth2 \u7B2C\u4E09\u65B9\u767B\u5F55\uFF09\u3002
+--
+-- \u4E0E user_oidc_bindings \u5E73\u884C\uFF1AOIDC \u7528 (issuer, subject) \u552F\u4E00\uFF0C\u793E\u4EA4\u767B\u5F55\u7528
+-- (provider, provider_user_id) \u552F\u4E00\u3002QQ \u4E92\u8054\u8FD4\u56DE\u7684 openid \u662F\u300C\u5E94\u7528\u7EF4\u5EA6\u300D\u7A33\u5B9A
+-- \u6807\u8BC6\uFF0Cunionid \u662F\u300C\u540C\u4E00\u5F00\u53D1\u8005\u8DE8\u5E94\u7528\u300D\u7A33\u5B9A\u6807\u8BC6\uFF1B\u4E24\u8005\u90FD\u5B58\uFF0C\u6309 openid \u552F\u4E00\u7EA6\u675F\uFF0C
+-- unionid \u4EC5\u4F5C\u515C\u5E95\u5339\u914D\uFF08\u540C\u4E00 QQ \u7528\u6237\u5728\u4E0D\u540C App \u4E0B openid \u4E0D\u540C\u4F46 unionid \u76F8\u540C\uFF09\u3002
+--
+-- \u793E\u4EA4\u767B\u5F55\u4E0D\u63D0\u4F9B\u90AE\u7BB1\uFF0C\u672C\u5730\u8D26\u53F7\u7528\u5408\u6210\u90AE\u7BB1\uFF08qq_<openid>@<\u7AD9\u70B9\u57DF\u540D>\uFF09\uFF0C\u56E0\u6B64\u672C\u8868
+-- \u7684 email \u4EC5\u4F5C\u5C55\u793A/\u6392\u67E5\u7528\uFF0C\u4E0D\u4F5C\u4E3A\u8D26\u53F7\u4E3B\u952E\u3002
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_social_bindings (
+    id                 SERIAL PRIMARY KEY,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at         TIMESTAMPTZ,
+    user_id            INTEGER     NOT NULL,
+    provider           VARCHAR(32) NOT NULL,
+    provider_user_id   VARCHAR(128) NOT NULL,
+    union_id           VARCHAR(128),
+    email              VARCHAR(255),
+    nickname           VARCHAR(255)
+);
+
+-- \u540C\u4E00 provider \u4E0B\u540C\u4E00 provider_user_id \u53EA\u80FD\u7ED1\u5B9A\u4E00\u4E2A\u672C\u5730\u8D26\u53F7
+CREATE UNIQUE INDEX IF NOT EXISTS user_social_bindings_provider_uid
+    ON user_social_bindings (provider, provider_user_id);
+
+-- \u540C\u4E00\u7528\u6237\u7ED1\u5B9A\u7684\u6240\u6709\u793E\u4EA4\u8EAB\u4EFD\uFF08\u8D26\u53F7\u8BBE\u7F6E\u9875\u5217\u51FA\u7528\uFF09
+CREATE INDEX IF NOT EXISTS user_social_bindings_user
+    ON user_social_bindings (user_id, deleted_at);
+
+-- unionid \u515C\u5E95\u5339\u914D\uFF08\u540C\u4E00 QQ \u7528\u6237\u8DE8\u5E94\u7528\uFF09
+CREATE INDEX IF NOT EXISTS user_social_bindings_union
+    ON user_social_bindings (provider, union_id) WHERE union_id IS NOT NULL;
+`;var K_=`-- \u6587\u4EF6\u52A0\u5BC6\uFF08\u8FB9\u7F18\u7248\u81EA\u5EFA Cloudreve Pro\u300C\u6587\u4EF6\u52A0\u5BC6\u300D\u529F\u80FD\uFF0C\u670D\u52A1\u7AEF\u843D\u5730\u7684\u5B58\u50A8\u4FA7\u90E8\u5206\uFF09
+--
+-- \u52A0\u5BC6\u5728\u6D4F\u89C8\u5668\u7AEF\u5B8C\u6210\uFF08\u4E0A\u6E38\u524D\u7AEF Uploader \u5DF2\u5185\u7F6E EncryptedBlob\uFF0C\u8D70 AES-256-CTR\uFF09\uFF0C
+-- \u670D\u52A1\u7AEF\u53EA\u505A\u4E09\u4EF6\u4E8B\uFF1A
+--   1. \u4E0A\u4F20\u4F1A\u8BDD\u9636\u6BB5\u6309\u7B56\u7565\u751F\u6210\u6BCF\u6587\u4EF6\u7684\u968F\u673A\u5BC6\u94A5 + IV\uFF0C\u56DE\u4F20\u7ED9\u524D\u7AEF\u7528\u4E8E\u5BA2\u6237\u7AEF\u52A0\u5BC6\uFF1B
+--   2. \u628A\u5BC6\u6587\u76F8\u5173\u7684\u5BC6\u94A5\u6750\u6599\u5B58\u5230\u6570\u636E\u5E93\uFF08\u4E0E\u5B58\u50A8\u540E\u7AEF\u5206\u79BB\uFF0C\u5B58\u50A8\u65B9\u53EA\u770B\u5230\u5BC6\u6587\uFF09\uFF1B
+--   3. \u4E0B\u8F7D\u65F6\u6309\u5B58\u7684\u5BC6\u94A5\u628A\u5BC6\u6587\u8FD8\u539F\u6210\u660E\u6587\u518D\u8FD4\u56DE\uFF08\u524D\u7AEF\u4E0B\u8F7D/\u9884\u89C8\u65E0\u611F\uFF09\u3002
+--
+-- files.encrypted        \uFF1A\u6587\u4EF6\u662F\u5426\u52A0\u5BC6\u7684\u8F7B\u91CF\u6807\u5FD7\uFF0C\u4F9B\u5217\u8868/\u8BE6\u60C5\u4E0B\u53D1\uFF08\u5C55\u793A\u9501\u6807\uFF09\u3002
+-- entities.enc_meta      \uFF1A\u8BE5\u5B9E\u4F53\u5185\u5BB9\u7684 AES-256-CTR \u5BC6\u94A5\u6750\u6599\uFF08base64 JSON\uFF09\uFF0C
+--                          \u4EC5\u5B58\u4E8E\u672C\u4ED3\u5E93\u6570\u636E\u5E93\uFF0COneDrive/S3/R2 \u7B49\u5B58\u50A8\u540E\u7AEF\u53EA\u770B\u5230\u5BC6\u6587\u3002
+ALTER TABLE files ADD COLUMN IF NOT EXISTS encrypted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE entities ADD COLUMN IF NOT EXISTS enc_meta TEXT;
+`;var V_=`-- =============================================================================
+-- 0018_key_values.sql \u2014\u2014 \u901A\u7528 KV \u8868\uFF08EdgeOne \u7B49\u65E0 KV \u7ED1\u5B9A\u73AF\u5883\u7684 KV \u515C\u5E95\uFF09
+--
+-- \u80CC\u666F\uFF1ACloudreve \u7684\u4F1A\u8BDD\uFF08session\uFF09\u3001\u4E0A\u4F20\u4F1A\u8BDD\u9501\uFF08upload\uFF09\u3001\u5916\u90E8\u51ED\u636E\u7F13\u5B58
+-- \uFF08cred\uFF09\u3001\u81EA\u4E3E\u6807\u8BB0\uFF08flag\uFF09\u5168\u653E\u5728 Workers KV \u91CC\u3002EdgeOne Node \u4E91\u51FD\u6570\u6CA1\u6709
+-- KV \u7ED1\u5B9A\uFF0CkvRouter \u68C0\u6D4B\u5230\u5168\u7ED1\u5B9A\u7F3A\u5931\u65F6\u628A\u8FD9\u4E9B\u952E\u843D\u5230\u8FD9\u5F20\u8868\u3002
+--
+-- \u8BED\u4E49\u5BF9\u9F50 Workers KV\uFF1A
+--   - get/put/delete/list({prefix}) \u56DB\u4E2A\u65B9\u6CD5\uFF08Cloudreve \u7684\u5168\u90E8\u7528\u91CF\uFF09
+--   - put \u652F\u6301 expirationTtl\uFF08\u5199 expire_at\uFF09\u4E0E metadata\uFF08JSON \u5B58\u540C\u8868\uFF09
+--   - \u8BFB\u65F6\u8FC7\u6EE4\u8FC7\u671F\u884C\uFF1B\u8FC7\u671F\u884C\u7531 cron\uFF08CF\uFF09/ \u60F0\u6027\uFF08EdgeOne\uFF09\u6E05\u7406
+--
+-- \u26A0\uFE0F kvStore \u7684\u515C\u5E95\u8DEF\u5F84\u4F1A\u5728\u8868\u7F3A\u5931\u65F6\u81EA\u52A8 CREATE TABLE IF NOT EXISTS\uFF1A
+--    \u8FC1\u79FB\u6807\u8BB0\u672C\u8EAB\u4E5F\u8D70 KV\uFF08flag \u89D2\u8272\uFF09\uFF0C\u6CA1\u6709\u8FD9\u5F20\u8868\u8FC1\u79FB\u6D41\u7A0B\u5C31\u8DD1\u4E0D\u8D77\u6765\u3002
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS key_values (
+    key       TEXT PRIMARY KEY,
+    value     TEXT NOT NULL,
+    metadata  TEXT,
+    expire_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_key_values_expire ON key_values (expire_at);
 `;Ve();ot();function X_(t){let e=[],r="",n=t.length,i=0,s=()=>{let o=r.trim();o&&e.push(o),r=""};for(;i<n;){let o=t[i],a=i+1<n?t[i+1]:"";if(o==="-"&&a==="-"){let c=t.indexOf(`
 `,i+2);i=c===-1?n:c;continue}if(o==="/"&&a==="*"){let c=1;for(i+=2;i<n&&c>0;)t[i]==="/"&&t[i+1]==="*"?(c++,i+=2):t[i]==="*"&&t[i+1]==="/"?(c--,i+=2):i++;r+=" ";continue}if(o==="'"){for(r+=t[i++];i<n;){let c=t[i++];if(r+=c,c==="'")if(t[i]==="'")r+="'",i++;else break}continue}if(o==='"'){for(r+=t[i++];i<n;){let c=t[i++];if(r+=c,c==='"')if(t[i]==='"')r+='"',i++;else break}continue}if(o==="$"){let c=i+1;for(;c<n&&/[A-Za-z0-9_]/.test(t[c]);)c++;if(t[c]==="$"&&(c===i+1||/[A-Za-z_]/.test(t[i+1]))){let u=t.slice(i,c+1),d=t.indexOf(u,c+1),p=d===-1?n:d+u.length;r+=t.slice(i,p),i=p;continue}r+=o,i++;continue}if(o===";"){s(),i++;continue}r+=o,i++}return s(),e}We();Jt();var ca="bootstrap:done:v19",wf=[["0001_init.sql",N_],["0002_admin_content.sql",P_],["0003_dav_passkey.sql",U_],["0004_node_settings.sql",D_],["0005_payment.sql",L_],["0006_audit_log.sql",O_],["0007_paid_share.sql",$_],["0008_oidc.sql",F_],["0009_group_storage_policies.sql",M_],["0010_archive.sql",q_],["0011_file_viewers.sql",B_],["0012_file_viewers_backfill.sql",H_],["0013_site_state.sql",z_],["0014_rate_limits.sql",j_],["0015_share_report.sql",W_],["0016_social_bindings.sql",G_],["0017_entity_encryption.sql",K_],["0018_key_values.sql",V_]],Y_="provision:schema",_f=!1;function YI(t){let e=t instanceof Error?t.message:String(t);return/already exists|duplicate/i.test(e)}async function QI(t,e){let r=e.sql,n=await ee(t,"flag").get(Y_),i=wf[wf.length-1][0];if(n!==i){for(let[s,o]of wf){let a=X_(o).map(c=>r(c));try{await mi(()=>r.transaction(a))}catch(c){if(!YI(c))throw new Error(`migration ${s} failed: ${c instanceof Error?c.message:String(c)}`)}}await ee(t,"flag").put(Y_,i)}}async function JI(t,e){let r=e.sql,n={IsAdmin:0,IsAnonymous:1,Share:2,WebDAV:3,ArchiveDownload:4,ArchiveTask:5,WebDAVProxy:6,ShareDownload:7,RemoteDownload:9,RedirectedSource:11,AdvanceDelete:12,IgnoreFileOwnership:16,UniqueRedirectDirectLink:17},i=1024**3,o=[{id:1,name:"Admin",maxStorage:1*1024**4,permissions:[n.IsAdmin,n.Share,n.WebDAV,n.WebDAVProxy,n.ArchiveDownload,n.ArchiveTask,n.ShareDownload,n.RemoteDownload,n.RedirectedSource,n.AdvanceDelete,n.IgnoreFileOwnership],settings:{source_batch:1e3,aria2_batch:50,max_walked_files:1e5,trash_retention:168*3600,redirected_source:!0}},{id:2,name:"User",maxStorage:1*i,permissions:[n.Share,n.ShareDownload,n.RedirectedSource],settings:{source_batch:10,aria2_batch:1,max_walked_files:1e5,trash_retention:168*3600,redirected_source:!0}},{id:3,name:"Anonymous",maxStorage:null,permissions:[n.IsAnonymous,n.ShareDownload],settings:{max_walked_files:1e5,redirected_source:!0}}];if(await mi(()=>r.transaction([...o.map(u=>{let d=u.permissions.length?Math.max(...u.permissions):-1,p=new Uint8Array(Math.max(1,(d>>3)+1));for(let h of u.permissions)p[h>>3]|=1<<(h&7);let m="";for(let h of p)m+=h.toString(16).padStart(2,"0");return r`
           INSERT INTO groups (id, name, max_storage, speed_limit, permissions, settings, storage_policy_id)
