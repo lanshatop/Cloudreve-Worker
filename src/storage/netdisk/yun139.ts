@@ -351,19 +351,24 @@ export class Yun139Driver implements StorageDriver {
 
     try {
       // 1) 落 R2 临时对象，顺路增量算 SHA-256（TransformStream 的 transform
-      //    在每次 enqueue 时同步执行，所以哈希不会漏字节）
+      //    在每次 enqueue 时同步执行，所以哈希不会漏字节）。
+      //    注意：pipeThrough 之后流的长度信息会丢失，R2 put 拒收未知长度流，
+      //    必须用 FixedLengthStream 把已知长度（size）重新标定回去。
       const hashing = new TransformStream<Uint8Array, Uint8Array>({
         transform(chunk, controller) {
           sha.update(chunk);
           controller.enqueue(chunk);
         },
       });
-      const piped = (stream as ReadableStream<Uint8Array>).pipeThrough(hashing);
-      await bucket.put(tempKey, piped, {
+      // Workers 提供 FixedLengthStream；Node（单测的 R2 mock）没有，回退普通流。
+      const sink: TransformStream<Uint8Array, Uint8Array> =
+        typeof FixedLengthStream !== 'undefined' ? new FixedLengthStream(size) : new TransformStream();
+      const putPromise = bucket.put(tempKey, sink.readable, {
         httpMetadata: { contentType: 'application/octet-stream' },
       });
+      await (stream as ReadableStream<Uint8Array>).pipeThrough(hashing).pipeTo(sink.writable);
+      await putPromise;
       const contentHash = sha.hex();
-
       // 2) 创建上传任务
       const partCount = Math.max(1, Math.ceil(size / PART_SIZE));
       const partInfos = Array.from({ length: Math.min(partCount, 100) }, (_, i) => ({
