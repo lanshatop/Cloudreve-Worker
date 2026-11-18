@@ -120,7 +120,9 @@ export class Yun139Driver implements StorageDriver {
 
   capabilities(): DriverCapabilities {
     return {
-      proxyRequired: true,
+      // 下载走 302 直连移动 CDN（getDownloadUrl 直链实测：无需任何请求头即可
+      // 访问）；仅「强制下载且存储端文件名与原名不符」时回退站点中转。
+      proxyRequired: false,
       uploadSentinelRequired: true,
       maxSourceExpire: 0,
       thumbSupportedExts: [],
@@ -211,40 +213,50 @@ export class Yun139Driver implements StorageDriver {
   private async post<T>(path: string, body: Record<string, unknown>): Promise<T> {
     await this.personalHost();
     const bodyString = JSON.stringify(body);
-    const urls = this.candidates(path);
     let lastError = '';
 
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i];
-      const res = await safeFetch(url, {
-        method: 'POST',
-        headers: this.headers(bodyString),
-        body: bodyString,
-      });
-      const text = await res.text();
-      if (res.status === 404 || /route not found/i.test(text)) {
-        lastError = `HTTP ${res.status} ${text.slice(0, 80)}`;
-        continue;
+    // 139 的路由对同一端点在不同请求间可能表现不一致（实测同一 host 下
+    // getDownloadUrl 成功、file/delete 双候选 404；Worker 出口有时拿到
+    // 非 JSON 响应）。候选 URL 全部失败时，强制刷新路由 host 重试一轮。
+    for (let round = 0; round < 2; round++) {
+      if (round > 0) {
+        routeCache.delete(this.cacheKey);
+        this.host = '';
+        await this.personalHost();
       }
-      let json: { success?: boolean; code?: string; message?: string; data?: unknown };
-      try {
-        json = JSON.parse(text);
-      } catch {
-        lastError = 'non-JSON response';
-        continue;
+      const urls = this.candidates(path);
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        const res = await safeFetch(url, {
+          method: 'POST',
+          headers: this.headers(bodyString),
+          body: bodyString,
+        });
+        const text = await res.text();
+        if (res.status === 404 || /route not found/i.test(text)) {
+          lastError = `HTTP ${res.status} ${text.slice(0, 80)}`;
+          continue;
+        }
+        let json: { success?: boolean; code?: string; message?: string; data?: unknown };
+        try {
+          json = JSON.parse(text);
+        } catch {
+          lastError = 'non-JSON response';
+          continue;
+        }
+        const code = String(json.code ?? '');
+        if (ROUTE_RETRY_CODES.has(code)) {
+          lastError = `routing error ${code}`;
+          continue;
+        }
+        if (json.success === false) {
+          throw new Error(`移动云盘 API 失败：${json.message ?? code ?? 'unknown'}`);
+        }
+        if (!res.ok) {
+          throw new Error(`移动云盘 HTTP ${res.status}：${text.slice(0, 160)}`);
+        }
+        return json as T;
       }
-      const code = String(json.code ?? '');
-      if (ROUTE_RETRY_CODES.has(code)) {
-        lastError = `routing error ${code}`;
-        continue;
-      }
-      if (json.success === false) {
-        throw new Error(`移动云盘 API 失败：${json.message ?? code ?? 'unknown'}`);
-      }
-      if (!res.ok) {
-        throw new Error(`移动云盘 HTTP ${res.status}：${text.slice(0, 160)}`);
-      }
-      return json as T;
     }
     throw new Error(`移动云盘 API 无可用路由（${lastError || 'unknown'}）`);
   }
@@ -382,6 +394,8 @@ export class Yun139Driver implements StorageDriver {
           fileId?: string;
           uploadId?: string;
           exist?: boolean;
+          /** 秒传命中时为 true（此时 uploadId/partInfos 为 null，无需上传） */
+          rapidUpload?: boolean;
           partInfos?: { partNumber: number; uploadUrl: string }[];
         };
       }>('/file/create', {
@@ -397,7 +411,9 @@ export class Yun139Driver implements StorageDriver {
         fileRenameMode: 'auto_rename',
       });
       const data = created.data;
-      if (data?.exist) return; // 秒传
+      // exist 与 rapidUpload 都表示服务端已按 contentHash 直接建好文件（秒传），
+      // 后者命中时 uploadId / partInfos 为 null，绝不能当作「缺参数」报错
+      if (data?.exist || data?.rapidUpload) return;
       if (!data?.fileId || !data?.uploadId) {
         throw new Error('移动云盘创建上传任务失败（缺 fileId / uploadId）');
       }
@@ -558,7 +574,13 @@ export class Yun139Driver implements StorageDriver {
       const resolved = await this.resolveFile(remotePathOf(this.rootPath, src));
       if (!resolved) continue;
       const id = String(resolved.fileId ?? resolved.catalogId ?? resolved.catalogID ?? '');
-      if (id) await this.post('/file/delete', { fileIds: [id] });
+      if (id) {
+        // 新版个人云没有 /file/delete；删除 = 移入回收站（与官方一致）
+        await this.post('/recyclebin/batchTrash', {
+          fileIds: [id],
+          commonAccountInfo: { account: this.account, accountType: 1 },
+        });
+      }
     }
   }
 
