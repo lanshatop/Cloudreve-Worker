@@ -94,6 +94,8 @@ export class WoPanDriver implements StorageDriver {
   private readonly dirCache = new Map<string, string>();
   /** 部分账号 CreateDirectory 恒返回 9999；首次失败后停用建目录，直接扁平化落盘。 */
   private mkdirDisabled = false;
+  /** 默认家庭 ID（FamilyUserCurrentEncode.defaultHomeId），CreateDirectory 必传。 */
+  private familyIdCache = '';
 
   constructor(readonly policy: StoragePolicyRow) {
     this.type = policy.type;
@@ -229,13 +231,35 @@ export class WoPanDriver implements StorageDriver {
     return this.request<T>(CHANNEL_HOME, key, param, { secret: true, ...extra });
   }
 
+  /**
+   * 默认家庭 ID。官方 wopan-sdk-go 在 CreateDirectory 里即使个人空间也必传
+   * familyId（取 FamilyUserCurrentEncode 的 defaultHomeId）；传空字符串服务端
+   * 返回 9999 系统异常。此调用在 9999→refresh 重试链之外，失败返回 '0' 兜底。
+   */
+  private async familyId(): Promise<string> {
+    if (this.familyIdCache) return this.familyIdCache;
+    try {
+      const data = await this.home<{ defaultHomeId?: number }>('FamilyUserCurrentEncode', {
+        clientId: CLIENT_ID,
+      });
+      if (data.defaultHomeId != null && Number.isFinite(data.defaultHomeId)) {
+        this.familyIdCache = String(data.defaultHomeId);
+      }
+    } catch {
+      // 忽略：失败时沿用 '0' 兜底
+    }
+    if (!this.familyIdCache) this.familyIdCache = '0';
+    return this.familyIdCache;
+  }
+
   // -------------------------------------------------------------------------
   // 目录 / 文件解析
   // -------------------------------------------------------------------------
 
   private async listFolder(dirId: string): Promise<WoFile[]> {
     const out: WoFile[] = [];
-    for (let page = 1; page <= 50; page++) {
+    // 官方 SDK 分页号从 0 开始；从 1 开始会导致首页即越界返回空列表。
+    for (let page = 0; page < 50; page++) {
       const data = await this.home<{ files?: WoFile[] }>('QueryAllFiles', {
         spaceType: SPACE_PERSONAL,
         parentDirectoryId: dirId,
@@ -254,7 +278,7 @@ export class WoPanDriver implements StorageDriver {
   private async createFolder(parentId: string, name: string): Promise<string> {
     const data = await this.home<{ id?: string }>('CreateDirectory', {
       spaceType: SPACE_PERSONAL,
-      familyId: '',
+      familyId: await this.familyId(),
       parentDirectoryId: parentId,
       directoryName: name,
       clientId: CLIENT_ID,
