@@ -16,15 +16,15 @@
  *   body → encodeURIComponent → 逐字符排序 → base64 → MD5(base64) +
  *   MD5(ts + ':' + rand) → 再 MD5 后转大写。
  *
- * **整文件 SHA-256 是 create 的必填项**（官方客户端在浏览器本地算好再请求），
- * 而 Cloudreve 传给驱动的是单向流。但 Worker 免费档单请求只有 **10ms CPU**：
+ * **整文件 SHA-256 是 create 的必填项**（官方客户端在浏览器本地算好再请求，
+ * 实测省略/置空都会被拒：「文件内容hash或算法名不允许为空」），而 Cloudreve
+ * 传给驱动的是单向流。但 Worker 免费档单请求只有 **10ms CPU**：
  *  - crypto-js 纯 JS 的 SHA-256 吞吐只有几 MB/s，95 MB 文件要几秒 CPU →
  *    直接被 CF 掐掉（HTTP 503 / error 1102），前端表现为「上传 503 + 无限重试」；
  *  - 即使换成原生 WebCrypto，几十 MB 也要几十毫秒 CPU，同样超限。
- * 所以：≤ 1 MB 的文件整文件进内存用原生 WebCrypto 算哈希（保留秒传能力）；
- * 更大的文件**跳过哈希**直接创建上传任务（放弃秒传），create 被拒时逐个回退
- * 请求形态（无哈希 → 空哈希+SHA256）。无论哪条路，都先把流落一份 R2 临时
- * 对象（小文件例外，直接内存转手），再从 R2 按分片读回来上传。**该策略类型要求 Worker 绑定 R2**（内置 R2 策略本来就要
+ * 所以：前端（浏览器）上传前用 WebCrypto 预计算 SHA-256，随创建会话请求
+ * （`content_hash`）带来，Worker 全程零哈希 CPU，任意大小都能传且秒传保留；
+ * 没带哈希的请求（WebDAV 等）只能传 ≤ 512 KB 的小文件（原生 WebCrypto 现算）。**该策略类型要求 Worker 绑定 R2**（内置 R2 策略本来就要
  * 绑定，未绑定时会给出明确错误）。
  *
  * 策略字段映射：
@@ -62,10 +62,10 @@ const ROUTE_URL = 'https://user-njs.yun.139.com/user/route/qryRoutePolicy';
 const PART_SIZE = 100 * 1024 * 1024;
 const ROUTE_RETRY_CODES = new Set(['9000', '9008', '9100']);
 /**
- * 直接内存哈希的大小上限。1 MB 的原生 SHA-256 ≈ 1ms CPU，十六进制转换
- * ≈ 几 ms，都在免费档 10ms CPU 预算内；更大的文件走跳过哈希的路径。
+ * Worker 内置哈希的大小上限。512 KB 的原生 SHA-256 + 十六进制转换 ≈ 几 ms
+ * CPU，稳在免费档 10ms 预算内；超过就必须由客户端（浏览器）预计算带来。
  */
-const INLINE_HASH_LIMIT = 1024 * 1024;
+const INLINE_HASH_LIMIT = 512 * 1024;
 const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
 
 function bytesToHex(arr: Uint8Array): string {
@@ -391,20 +391,31 @@ export class Yun139Driver implements StorageDriver {
     name: string,
     stream: ReadableStream,
     size: number,
+    contentHash?: string,
   ): Promise<void> {
+    const known = contentHash && /^[0-9a-f]{64}$/.test(contentHash) ? contentHash : '';
+    if (known) {
+      // 浏览器已把哈希算好带来：任何大小都能传（秒传也保留），Worker 零哈希 CPU。
+      await this.uploadSpooled(parentId, name, stream, size, known);
+      return;
+    }
     // 免费档 Worker 只有 10ms CPU：纯 JS SHA-256（crypto-js）算几 MB 就超限，
     // 原生实现也算不动几十 MB 的文件——大文件绝不能在 Worker 里算整文件哈希，
     // 否则就是「大文件上传 503（CF error 1102）+ 前端无限重试」的根因。
     if (size <= INLINE_HASH_LIMIT) {
       await this.uploadSmall(parentId, name, stream, size);
     } else {
-      await this.uploadLarge(parentId, name, stream, size);
+      throw new Error(
+        '移动云盘上传：该文件超过 Worker 内置哈希能力，且请求未携带客户端预计算的 ' +
+          'SHA-256（浏览器上传会自动携带；WebDAV 等第三方客户端上传大文件暂不支持移动云盘）',
+      );
     }
   }
 
   /**
-   * 小文件（≤ INLINE_HASH_LIMIT）：整文件进内存，原生 WebCrypto 算 SHA-256，
-   * 不落 R2（创建任务后直接把缓冲区 PUT 到下发地址），保留秒传能力。
+   * 小文件（≤ INLINE_HASH_LIMIT，且客户端没带哈希）：整文件进内存，原生
+   * WebCrypto 算 SHA-256，不落 R2（创建任务后直接把缓冲区 PUT 到下发地址），
+   * 保留秒传能力。
    */
   private async uploadSmall(
     parentId: string,
@@ -462,15 +473,16 @@ export class Yun139Driver implements StorageDriver {
   }
 
   /**
-   * 大文件（> INLINE_HASH_LIMIT）：先落 R2 临时对象（**不算哈希**），再
-   * 跳过哈希创建上传任务（放弃秒传），create 被拒时回退「空哈希+SHA256」
-   * 形态，从 R2 按分片读回来直传，最后删临时对象。
+   * 已知整文件 SHA-256（浏览器预计算带来）的任意大小文件：先落 R2 临时对象
+   * （纯搬运，不算哈希），create 直接带真实哈希（秒传保留），再从 R2 按分片
+   * 读回来直传，最后删临时对象。
    */
-  private async uploadLarge(
+  private async uploadSpooled(
     parentId: string,
     name: string,
     stream: ReadableStream,
     size: number,
+    contentHash: string,
   ): Promise<void> {
     const bucket = this.bucket();
     const tempKey = `_netdisk_tmp/139/${crypto.randomUUID()}`;
@@ -488,14 +500,16 @@ export class Yun139Driver implements StorageDriver {
       await (stream as ReadableStream<Uint8Array>).pipeTo(sink.writable);
       await putPromise;
 
-      // 2) 创建上传任务（跳过哈希，两种请求形态逐个回退）
+      // 2) 创建上传任务（带真实哈希）
       const partCount = Math.max(1, Math.ceil(size / PART_SIZE));
       const partInfos = Array.from({ length: Math.min(partCount, 100) }, (_, i) => ({
         partNumber: i + 1,
         partSize: i + 1 === partCount ? size - i * PART_SIZE : PART_SIZE,
         parallelHashCtx: { partOffset: i * PART_SIZE },
       }));
-      const baseBody = {
+      const created = await this.post<{ data?: Y139CreateData }>('/file/create', {
+        contentHash,
+        contentHashAlgorithm: 'SHA256',
         contentType: 'application/octet-stream',
         parallelUpload: false,
         partInfos,
@@ -504,36 +518,13 @@ export class Yun139Driver implements StorageDriver {
         name,
         type: 'file',
         fileRenameMode: 'auto_rename',
-      };
-      const attempts: { label: string; body: Record<string, unknown>; hashMode: 'omit' | 'empty' }[] = [
-        { label: '跳过哈希', body: baseBody, hashMode: 'omit' },
-        {
-          label: '空哈希+SHA256',
-          body: { ...baseBody, contentHash: '', contentHashAlgorithm: 'SHA256' },
-          hashMode: 'empty',
-        },
-      ];
-      let data: Y139CreateData | undefined;
-      let hashMode: 'omit' | 'empty' = 'omit';
-      let lastErr = '';
-      for (const attempt of attempts) {
-        try {
-          const created = await this.post<{ data?: Y139CreateData }>('/file/create', attempt.body);
-          const d = created.data;
-          // 意外的秒传/已存在命中：服务端已建好文件，直接收工
-          if (d?.exist || d?.rapidUpload) return;
-          if (d?.fileId && d?.uploadId) {
-            data = d;
-            hashMode = attempt.hashMode;
-            break;
-          }
-          lastErr = `${attempt.label}：响应缺 fileId/uploadId`;
-        } catch (e) {
-          lastErr = `${attempt.label}：${e instanceof Error ? e.message : String(e)}`;
-        }
-      }
+      });
+      const data = created.data;
+      // exist 与 rapidUpload 都表示服务端已按 contentHash 直接建好文件（秒传），
+      // 后者命中时 uploadId / partInfos 为 null，绝不能当作「缺参数」报错
+      if (data?.exist || data?.rapidUpload) return;
       if (!data?.fileId || !data?.uploadId) {
-        throw new Error(`移动云盘创建上传任务失败（${lastErr}）`);
+        throw new Error('移动云盘创建上传任务失败（缺 fileId / uploadId）');
       }
 
       // 3) 逐片从 R2 读回来直传
@@ -547,16 +538,13 @@ export class Yun139Driver implements StorageDriver {
         await this.putPart(url, buf);
       }
 
-      // 4) 完成上传（请求形态与 create 保持一致）
-      const completeBody: Record<string, unknown> = {
+      // 4) 完成上传
+      await this.post('/file/complete', {
+        contentHash,
+        contentHashAlgorithm: 'SHA256',
         fileId: data.fileId,
         uploadId: data.uploadId,
-      };
-      if (hashMode === 'empty') {
-        completeBody.contentHash = '';
-        completeBody.contentHashAlgorithm = 'SHA256';
-      }
-      await this.post('/file/complete', completeBody);
+      });
     } finally {
       await bucket.delete(tempKey).catch(() => {});
     }
@@ -626,6 +614,7 @@ export class Yun139Driver implements StorageDriver {
         size: length,
         mimeType: session.mimeType,
         overwrite: true,
+        contentHash: session.contentHash,
       },
       body,
       length,
@@ -658,7 +647,7 @@ export class Yun139Driver implements StorageDriver {
       const id = String(existing.fileId ?? existing.catalogId ?? existing.catalogID ?? '');
       if (id) await this.post('/file/delete', { fileIds: [id] });
     }
-    await this.uploadStream(parentId, name, body, size);
+    await this.uploadStream(parentId, name, body, size, file.contentHash);
   }
 
   async get(source: string, range?: string | null): Promise<ObjectContent | null> {

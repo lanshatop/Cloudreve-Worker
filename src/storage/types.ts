@@ -19,6 +19,8 @@ export interface UploadRequest {
   /** 覆盖已存在对象 */
   overwrite: boolean;
   metadata?: Record<string, string>;
+  /** 客户端（浏览器）预计算的整文件 SHA-256（小写十六进制，64 位）。 */
+  contentHash?: string;
 }
 
 /** 已上传的分片记录，用于最终 complete。 */
@@ -48,6 +50,8 @@ export interface UploadSession {
   /** 创建会话时目标文件是否已存在（决定收尾时是新建还是新版本） */
   newFileCreated: boolean;
   mimeType: string;
+  /** 客户端（浏览器）预计算的整文件 SHA-256。139 等强制哈希的网盘大文件上传必须靠它。 */
+  contentHash?: string;
 }
 
 /** 返回给客户端的上传凭证。字段名与原版 `fs.UploadCredential` 一致。 */

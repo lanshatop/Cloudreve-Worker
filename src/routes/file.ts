@@ -705,6 +705,8 @@ fileRoutes.put('/upload', async (c) => {
     entity_type?: string;
     /** 客户端声明的加密算法能力（对齐上游 UploadSessionRequest）。 */
     encryption_supported?: string[];
+    /** 客户端预计算的整文件 SHA-256（139 等强制哈希的网盘大文件上传必需）。 */
+    content_hash?: string;
   };
   if (!body.uri) return fail(c, Err.param('uri is required'));
 
@@ -720,6 +722,7 @@ fileRoutes.put('/upload', async (c) => {
       metadata: body.metadata,
       entityType: body.entity_type,
       encryptionSupported: body.encryption_supported,
+      contentHash: body.content_hash,
     });
     return ok(c, res);
   } catch (e) {
