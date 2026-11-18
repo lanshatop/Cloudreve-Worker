@@ -1850,14 +1850,11 @@ API \u5165\u53E3\uFF1A/api/v4/site/ping
         }
       }
     </style>
-    <link rel="preload" as="script" crossorigin href="/assets/index-7c-Rl0_z.js">
-  <script fetchpriority="high" async type="module" crossorigin src="/assets/index-7c-Rl0_z.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/common-5dK6VpSw.js">
-    <link rel="modulepreload" crossorigin href="/assets/mermaid-BzRmH_AF.js">
-    <link rel="modulepreload" crossorigin href="/assets/excalidraw-a6Q3QbaC.js">
-    <link rel="modulepreload" crossorigin href="/assets/react-nkeaDCXO.js">
+    <link rel="preload" as="script" crossorigin href="/assets/index-CVQwxL26.js">
+  <script fetchpriority="high" async type="module" crossorigin src="/assets/index-CVQwxL26.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/common-BMa9UiV4.js">
+    <link rel="modulepreload" crossorigin href="/assets/react-DLaZpTwK.js">
     <link rel="stylesheet" crossorigin href="/assets/react-4-pFdlfx.css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" crossorigin href="/assets/excalidraw-Bnx8hZwR.css" media="print" onload="this.media='all'">
     <link rel="stylesheet" crossorigin href="/assets/index-qQxd8I_f.css" media="print" onload="this.media='all'">
     <link rel="preload" as="font" type="font/woff2" crossorigin href="/assets/roboto-latin-400-normal-mTIRXP6Y.woff2">
     <link rel="preload" as="font" type="font/woff2" crossorigin href="/assets/roboto-latin-500-normal-Dxdx3aXO.woff2">
