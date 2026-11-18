@@ -526,8 +526,6 @@ export interface UploadSessionRequest {
   };
   mime_type?: string;
   encryption_supported?: EncryptionCipher[];
-  /** 【本站补丁】浏览器预计算的整文件 SHA-256（移动云盘大文件上传必需）。 */
-  content_hash?: string;
 }
 
 export interface EncryptMetadata {

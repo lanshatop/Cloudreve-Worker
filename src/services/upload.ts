@@ -67,11 +67,6 @@ export interface CreateUploadSessionParams {  uri: string;
   entityType?: string;
   /** 前端声明的可用加密算法（对应上游 UploadSessionRequest.encryption_supported）。 */
   encryptionSupported?: string[];
-  /**
-   * 前端预计算的整文件 SHA-256（小写十六进制）。Worker 免费档 10ms CPU 算不动
-   * 大文件哈希，139 这类强制哈希的网盘全靠客户端带来。
-   */
-  contentHash?: string;
 }
 
 export interface UploadSessionResponse {
@@ -269,10 +264,6 @@ export class UploadService {
       expireAt,
       newFileCreated,
       mimeType: params.mimeType ?? '',
-      contentHash:
-        params.contentHash && /^[0-9a-f]{64}$/.test(params.contentHash)
-          ? params.contentHash.toLowerCase()
-          : undefined,
     };
 
     const driver = this.ctx.driverFor(policy);
