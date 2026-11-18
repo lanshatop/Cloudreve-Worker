@@ -92,6 +92,8 @@ export class WoPanDriver implements StorageDriver {
   private readonly state: WoTokenState;
   private zoneUrl = '';
   private readonly dirCache = new Map<string, string>();
+  /** 部分账号 CreateDirectory 恒返回 9999；首次失败后停用建目录，直接扁平化落盘。 */
+  private mkdirDisabled = false;
 
   constructor(readonly policy: StoragePolicyRow) {
     this.type = policy.type;
@@ -261,31 +263,75 @@ export class WoPanDriver implements StorageDriver {
     return data.id;
   }
 
-  private async resolveDir(segments: string[]): Promise<string> {
+  /**
+   * 解析（或创建）目录链，返回落盘目录 id 与扁平化文件名前缀。
+   *
+   * 部分联通账号可以正常读写文件，但其接口 CreateDirectory 会返回 9999
+   * （系统异常，实测与 token 无关）。原实现一旦建目录失败就抛错，且误把
+   * 9999 当成 token 过期去 refresh，导致上传整体失败。这里改为：目录存在
+   * 就进入；不存在且能创建就创建；创建失败则把该段及后续段扁平化进文件名
+   * 前缀，文件直接落到最后可用的父目录（最坏是网盘根目录），保证文件不丢。
+   */
+  private async resolveDir(
+    segments: string[],
+  ): Promise<{ dirId: string; flatPrefix: string }> {
     let current = this.rootFolderId;
     let key = '';
+    let flat = '';
+    let flatten = false;
     for (const seg of segments) {
       key += `/${seg}`;
+      if (flatten) {
+        flat += `${flat ? '_' : ''}${seg}`;
+        continue;
+      }
       const cached = this.dirCache.get(key);
       if (cached) {
         current = cached;
         continue;
       }
-      const files = await this.listFolder(current);
+      let files: WoFile[];
+      try {
+        files = await this.listFolder(current);
+      } catch {
+        // 列目录也失败：只能扁平化落到当前父目录
+        flatten = true;
+        flat += `${flat ? '_' : ''}${seg}`;
+        continue;
+      }
       const hit = files.find((f) => f.name === seg && f.type === 0);
-      current = hit ? hit.id : await this.createFolder(current, seg);
-      this.dirCache.set(key, current);
+      if (hit) {
+        current = hit.id;
+        this.dirCache.set(key, current);
+        continue;
+      }
+      if (this.mkdirDisabled) {
+        flatten = true;
+        flat += `${flat ? '_' : ''}${seg}`;
+        continue;
+      }
+      try {
+        current = await this.createFolder(current, seg);
+        this.dirCache.set(key, current);
+      } catch {
+        // CreateDirectory 在该账号不可用（9999）：本次及后续都直接扁平化，
+        // 避免每次上传都白跑一次建目录 + 一次徒劳的 token refresh。
+        this.mkdirDisabled = true;
+        flatten = true;
+        flat += `${flat ? '_' : ''}${seg}`;
+      }
     }
-    return current;
+    return { dirId: current, flatPrefix: flat };
   }
 
   private async resolveFile(path: string): Promise<WoFile | null> {
     const segs = segmentsOf(path);
     if (!segs.length) return null;
     const name = segs.pop()!;
-    const parentId = await this.resolveDir(segs);
-    const files = await this.listFolder(parentId);
-    return files.find((f) => f.name === name && f.type !== 0) ?? null;
+    const { dirId, flatPrefix } = await this.resolveDir(segs);
+    const files = await this.listFolder(dirId);
+    const flatName = flatPrefix ? `${flatPrefix}_${name}` : name;
+    return files.find((f) => f.name === flatName && f.type !== 0) ?? null;
   }
 
   private async downloadUrl(fid: string): Promise<string> {
@@ -458,7 +504,8 @@ export class WoPanDriver implements StorageDriver {
     const path = remotePathOf(this.rootPath, file.savePath);
     const segs = segmentsOf(path);
     const name = segs.pop()!;
-    const dirId = await this.resolveDir(segs);
+    const { dirId, flatPrefix } = await this.resolveDir(segs);
+    const flatName = flatPrefix ? `${flatPrefix}_${name}` : name;
     const existing = await this.resolveFile(path);
     if (existing) {
       if (!file.overwrite) throw new Error('Object existed');
@@ -470,7 +517,7 @@ export class WoPanDriver implements StorageDriver {
         clientId: CLIENT_ID,
       });
     }
-    await this.uploadStream(dirId, name, body, contentLength || file.size);
+    await this.uploadStream(dirId, flatName, body, contentLength || file.size);
   }
 
   async get(source: string, range?: string | null): Promise<ObjectContent | null> {
@@ -546,7 +593,7 @@ export class WoPanDriver implements StorageDriver {
     continuation: string | null;
   }> {
     const dir = prefix ? remotePathOf(this.rootPath, prefix) : this.rootPath;
-    const dirId = await this.resolveDir(segmentsOf(dir));
+    const { dirId } = await this.resolveDir(segmentsOf(dir));
     const files = await this.listFolder(dirId);
     const limit = Math.min(1000, Math.max(1, options.limit ?? 200));
     const keys = files
