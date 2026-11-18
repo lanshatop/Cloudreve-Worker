@@ -16,10 +16,15 @@
  *   body → encodeURIComponent → 逐字符排序 → base64 → MD5(base64) +
  *   MD5(ts + ':' + rand) → 再 MD5 后转大写。
  *
- * **整文件 SHA-256 是 create 的必填项**，而 Cloudreve 传给驱动的是单向流。
- * 所以这里把流先落一份到 R2 临时对象（同时增量算 SHA-256），再从 R2 按分片
- * range 读回来上传，最后删掉临时对象。这样既不用把 95 MB 全塞进内存，也不用
- * 让客户端多传一次。**该策略类型要求 Worker 绑定 R2**（内置 R2 策略本来就要
+ * **整文件 SHA-256 是 create 的必填项**（官方客户端在浏览器本地算好再请求），
+ * 而 Cloudreve 传给驱动的是单向流。但 Worker 免费档单请求只有 **10ms CPU**：
+ *  - crypto-js 纯 JS 的 SHA-256 吞吐只有几 MB/s，95 MB 文件要几秒 CPU →
+ *    直接被 CF 掐掉（HTTP 503 / error 1102），前端表现为「上传 503 + 无限重试」；
+ *  - 即使换成原生 WebCrypto，几十 MB 也要几十毫秒 CPU，同样超限。
+ * 所以：≤ 1 MB 的文件整文件进内存用原生 WebCrypto 算哈希（保留秒传能力）；
+ * 更大的文件**跳过哈希**直接创建上传任务（放弃秒传），create 被拒时逐个回退
+ * 请求形态（无哈希 → 空哈希+SHA256）。无论哪条路，都先把流落一份 R2 临时
+ * 对象（小文件例外，直接内存转手），再从 R2 按分片读回来上传。**该策略类型要求 Worker 绑定 R2**（内置 R2 策略本来就要
  * 绑定，未绑定时会给出明确错误）。
  *
  * 策略字段映射：
@@ -43,7 +48,6 @@ import type {
 } from '../types';
 import {
   BROWSER_UA,
-  Sha256Stream,
   joinPath,
   md5Hex,
   normalizeRoot,
@@ -57,6 +61,37 @@ const ROUTE_URL = 'https://user-njs.yun.139.com/user/route/qryRoutePolicy';
 /** 分片大小：<30 GB 用 100 MB（与官方客户端一致），我们实际只会用到 1 片。 */
 const PART_SIZE = 100 * 1024 * 1024;
 const ROUTE_RETRY_CODES = new Set(['9000', '9008', '9100']);
+/**
+ * 直接内存哈希的大小上限。1 MB 的原生 SHA-256 ≈ 1ms CPU，十六进制转换
+ * ≈ 几 ms，都在免费档 10ms CPU 预算内；更大的文件走跳过哈希的路径。
+ */
+const INLINE_HASH_LIMIT = 1024 * 1024;
+const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
+
+function bytesToHex(arr: Uint8Array): string {
+  const out = new Array<string>(arr.length);
+  for (let i = 0; i < arr.length; i++) out[i] = HEX_TABLE[arr[i]];
+  return out.join('');
+}
+
+interface Y139CreateData {
+  fileId?: string;
+  uploadId?: string;
+  exist?: boolean;
+  /** 秒传命中时为 true（此时 uploadId/partInfos 为 null，无需上传） */
+  rapidUpload?: boolean;
+  partInfos?: { partNumber: number; uploadUrl: string }[];
+}
+
+function concat(chunks: Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.length;
+  }
+  return out;
+}
 
 interface Y139Item {
   fileId?: string;
@@ -344,7 +379,7 @@ export class Yun139Driver implements StorageDriver {
   private bucket(): R2Bucket {
     if (!this.env.R2) {
       throw new Error(
-        '移动云盘上传需要 R2 绑定作为临时缓冲（整文件 SHA-256 必须在创建上传任务前算出）。' +
+        '移动云盘上传需要 R2 绑定作为临时缓冲（大文件要先落地再分片直传）。' +
           '请在 wrangler.toml 里保留 r2_buckets 的 R2 绑定。',
       );
     }
@@ -357,50 +392,110 @@ export class Yun139Driver implements StorageDriver {
     stream: ReadableStream,
     size: number,
   ): Promise<void> {
+    // 免费档 Worker 只有 10ms CPU：纯 JS SHA-256（crypto-js）算几 MB 就超限，
+    // 原生实现也算不动几十 MB 的文件——大文件绝不能在 Worker 里算整文件哈希，
+    // 否则就是「大文件上传 503（CF error 1102）+ 前端无限重试」的根因。
+    if (size <= INLINE_HASH_LIMIT) {
+      await this.uploadSmall(parentId, name, stream, size);
+    } else {
+      await this.uploadLarge(parentId, name, stream, size);
+    }
+  }
+
+  /**
+   * 小文件（≤ INLINE_HASH_LIMIT）：整文件进内存，原生 WebCrypto 算 SHA-256，
+   * 不落 R2（创建任务后直接把缓冲区 PUT 到下发地址），保留秒传能力。
+   */
+  private async uploadSmall(
+    parentId: string,
+    name: string,
+    stream: ReadableStream,
+    size: number,
+  ): Promise<void> {
+    const reader = (stream as ReadableStream<Uint8Array>).getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+    }
+    if (received !== size) {
+      throw new Error(`移动云盘上传中断：收到 ${received} 字节，应为 ${size}`);
+    }
+    const buf = received === chunks.length ? chunks[0] : concat(chunks, received);
+    const digest = await crypto.subtle.digest('SHA-256', buf as Uint8Array<ArrayBuffer>);
+    const contentHash = bytesToHex(new Uint8Array(digest));
+
+    const created = await this.post<{
+      data?: Y139CreateData;
+    }>('/file/create', {
+      contentHash,
+      contentHashAlgorithm: 'SHA256',
+      contentType: 'application/octet-stream',
+      parallelUpload: false,
+      partInfos: [{ partNumber: 1, partSize: size, parallelHashCtx: { partOffset: 0 } }],
+      size,
+      parentFileId: parentId,
+      name,
+      type: 'file',
+      fileRenameMode: 'auto_rename',
+    });
+    const data = created.data;
+    if (data?.exist || data?.rapidUpload) return;
+    if (!data?.fileId || !data?.uploadId) {
+      throw new Error('移动云盘创建上传任务失败（缺 fileId / uploadId）');
+    }
+
+    const url = await this.partUploadUrl(data, 1, [
+      { partNumber: 1, partSize: size, parallelHashCtx: { partOffset: 0 } },
+    ]);
+    await this.putPart(url, buf.subarray(0, size));
+
+    await this.post('/file/complete', {
+      contentHash,
+      contentHashAlgorithm: 'SHA256',
+      fileId: data.fileId,
+      uploadId: data.uploadId,
+    });
+  }
+
+  /**
+   * 大文件（> INLINE_HASH_LIMIT）：先落 R2 临时对象（**不算哈希**），再
+   * 跳过哈希创建上传任务（放弃秒传），create 被拒时回退「空哈希+SHA256」
+   * 形态，从 R2 按分片读回来直传，最后删临时对象。
+   */
+  private async uploadLarge(
+    parentId: string,
+    name: string,
+    stream: ReadableStream,
+    size: number,
+  ): Promise<void> {
     const bucket = this.bucket();
     const tempKey = `_netdisk_tmp/139/${crypto.randomUUID()}`;
-    const sha = new Sha256Stream();
 
     try {
-      // 1) 落 R2 临时对象，顺路增量算 SHA-256（TransformStream 的 transform
-      //    在每次 enqueue 时同步执行，所以哈希不会漏字节）。
-      //    注意：pipeThrough 之后流的长度信息会丢失，R2 put 拒收未知长度流，
+      // 1) 落 R2 临时对象（不做任何哈希变换，纯搬运）。
+      //    注意：pipeTo 之后流的长度信息会丢失，R2 put 拒收未知长度流，
       //    必须用 FixedLengthStream 把已知长度（size）重新标定回去。
-      const hashing = new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-          sha.update(chunk);
-          controller.enqueue(chunk);
-        },
-      });
       // Workers 提供 FixedLengthStream；Node（单测的 R2 mock）没有，回退普通流。
       const sink: TransformStream<Uint8Array, Uint8Array> =
         typeof FixedLengthStream !== 'undefined' ? new FixedLengthStream(size) : new TransformStream();
       const putPromise = bucket.put(tempKey, sink.readable, {
         httpMetadata: { contentType: 'application/octet-stream' },
       });
-      await (stream as ReadableStream<Uint8Array>).pipeThrough(hashing).pipeTo(sink.writable);
+      await (stream as ReadableStream<Uint8Array>).pipeTo(sink.writable);
       await putPromise;
-      const contentHash = sha.hex();
-      // 2) 创建上传任务
+
+      // 2) 创建上传任务（跳过哈希，两种请求形态逐个回退）
       const partCount = Math.max(1, Math.ceil(size / PART_SIZE));
       const partInfos = Array.from({ length: Math.min(partCount, 100) }, (_, i) => ({
         partNumber: i + 1,
         partSize: i + 1 === partCount ? size - i * PART_SIZE : PART_SIZE,
         parallelHashCtx: { partOffset: i * PART_SIZE },
       }));
-
-      const created = await this.post<{
-        data?: {
-          fileId?: string;
-          uploadId?: string;
-          exist?: boolean;
-          /** 秒传命中时为 true（此时 uploadId/partInfos 为 null，无需上传） */
-          rapidUpload?: boolean;
-          partInfos?: { partNumber: number; uploadUrl: string }[];
-        };
-      }>('/file/create', {
-        contentHash,
-        contentHashAlgorithm: 'SHA256',
+      const baseBody = {
         contentType: 'application/octet-stream',
         parallelUpload: false,
         partInfos,
@@ -409,67 +504,101 @@ export class Yun139Driver implements StorageDriver {
         name,
         type: 'file',
         fileRenameMode: 'auto_rename',
-      });
-      const data = created.data;
-      // exist 与 rapidUpload 都表示服务端已按 contentHash 直接建好文件（秒传），
-      // 后者命中时 uploadId / partInfos 为 null，绝不能当作「缺参数」报错
-      if (data?.exist || data?.rapidUpload) return;
-      if (!data?.fileId || !data?.uploadId) {
-        throw new Error('移动云盘创建上传任务失败（缺 fileId / uploadId）');
+      };
+      const attempts: { label: string; body: Record<string, unknown>; hashMode: 'omit' | 'empty' }[] = [
+        { label: '跳过哈希', body: baseBody, hashMode: 'omit' },
+        {
+          label: '空哈希+SHA256',
+          body: { ...baseBody, contentHash: '', contentHashAlgorithm: 'SHA256' },
+          hashMode: 'empty',
+        },
+      ];
+      let data: Y139CreateData | undefined;
+      let hashMode: 'omit' | 'empty' = 'omit';
+      let lastErr = '';
+      for (const attempt of attempts) {
+        try {
+          const created = await this.post<{ data?: Y139CreateData }>('/file/create', attempt.body);
+          const d = created.data;
+          // 意外的秒传/已存在命中：服务端已建好文件，直接收工
+          if (d?.exist || d?.rapidUpload) return;
+          if (d?.fileId && d?.uploadId) {
+            data = d;
+            hashMode = attempt.hashMode;
+            break;
+          }
+          lastErr = `${attempt.label}：响应缺 fileId/uploadId`;
+        } catch (e) {
+          lastErr = `${attempt.label}：${e instanceof Error ? e.message : String(e)}`;
+        }
       }
-
-      const urls = new Map<number, string>();
-      for (const p of data.partInfos ?? []) urls.set(p.partNumber, p.uploadUrl);
+      if (!data?.fileId || !data?.uploadId) {
+        throw new Error(`移动云盘创建上传任务失败（${lastErr}）`);
+      }
 
       // 3) 逐片从 R2 读回来直传
       for (let partNumber = 1; partNumber <= partCount; partNumber++) {
-        if (!urls.has(partNumber)) {
-          const more = await this.post<{
-            data?: { partInfos?: { partNumber: number; uploadUrl: string }[] };
-          }>('/file/getUploadUrl', {
-            fileId: data.fileId,
-            uploadId: data.uploadId,
-            partInfos: partInfos.filter((p) => p.partNumber === partNumber),
-            commonAccountInfo: { account: this.account, accountType: 1 },
-          });
-          for (const p of more.data?.partInfos ?? []) urls.set(p.partNumber, p.uploadUrl);
-        }
-        const url = urls.get(partNumber);
-        if (!url) throw new Error(`移动云盘未下发第 ${partNumber} 片的上传地址`);
-
+        const url = await this.partUploadUrl(data, partNumber, partInfos);
         const offset = (partNumber - 1) * PART_SIZE;
         const length = partNumber === partCount ? size - offset : PART_SIZE;
         const obj = await bucket.get(tempKey, { range: { offset, length } });
         if (!obj) throw new Error('移动云盘上传中断：R2 临时对象已丢失');
         const buf = new Uint8Array(await obj.arrayBuffer());
-
-        const put = await fetch(url, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/octet-stream',
-            Origin: 'https://yun.139.com',
-            Referer: 'https://yun.139.com/',
-            'User-Agent': BROWSER_UA,
-          },
-          body: buf as unknown as BodyInit,
-        });
-        if (!put.ok) {
-          const text = await put.text().catch(() => '');
-          throw new Error(`移动云盘上传第 ${partNumber} 片失败：HTTP ${put.status} ${text.slice(0, 120)}`);
-        }
-        await put.body?.cancel().catch(() => {});
+        await this.putPart(url, buf);
       }
 
-      // 4) 完成上传
-      await this.post('/file/complete', {
-        contentHash,
-        contentHashAlgorithm: 'SHA256',
+      // 4) 完成上传（请求形态与 create 保持一致）
+      const completeBody: Record<string, unknown> = {
         fileId: data.fileId,
         uploadId: data.uploadId,
-      });
+      };
+      if (hashMode === 'empty') {
+        completeBody.contentHash = '';
+        completeBody.contentHashAlgorithm = 'SHA256';
+      }
+      await this.post('/file/complete', completeBody);
     } finally {
       await bucket.delete(tempKey).catch(() => {});
     }
+  }
+
+  /** 拿某一片的下发上传地址；create 响应没带时补一次 getUploadUrl。 */
+  private async partUploadUrl(
+    data: Y139CreateData,
+    partNumber: number,
+    partInfos: { partNumber: number; partSize: number; parallelHashCtx: { partOffset: number } }[],
+  ): Promise<string> {
+    const direct = data.partInfos?.find((p) => p.partNumber === partNumber)?.uploadUrl;
+    if (direct) return direct;
+    const more = await this.post<{
+      data?: { partInfos?: { partNumber: number; uploadUrl: string }[] };
+    }>('/file/getUploadUrl', {
+      fileId: data.fileId,
+      uploadId: data.uploadId,
+      partInfos: partInfos.filter((p) => p.partNumber === partNumber),
+      commonAccountInfo: { account: this.account, accountType: 1 },
+    });
+    const url = more.data?.partInfos?.find((p) => p.partNumber === partNumber)?.uploadUrl;
+    if (!url) throw new Error(`移动云盘未下发第 ${partNumber} 片的上传地址`);
+    return url;
+  }
+
+  private async putPart(url: string, body: Uint8Array): Promise<void> {
+    const put = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        Origin: 'https://yun.139.com',
+        Referer: 'https://yun.139.com/',
+        'User-Agent': BROWSER_UA,
+      },
+      body: body as unknown as BodyInit,
+    });
+    if (!put.ok) {
+      const text = await put.text().catch(() => '');
+      throw new Error(`移动云盘分片直传失败：HTTP ${put.status} ${text.slice(0, 120)}`);
+    }
+    await put.body?.cancel().catch(() => {});
   }
 
   // -------------------------------------------------------------------------
