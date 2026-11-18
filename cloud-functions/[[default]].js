@@ -1850,8 +1850,8 @@ API \u5165\u53E3\uFF1A/api/v4/site/ping
         }
       }
     </style>
-    <link rel="preload" as="script" crossorigin href="/assets/index-MIVAUPxZ.js">
-  <script fetchpriority="high" async type="module" crossorigin src="/assets/index-MIVAUPxZ.js"></script>
+    <link rel="preload" as="script" crossorigin href="/assets/index-tfcD6hOu.js">
+  <script fetchpriority="high" async type="module" crossorigin src="/assets/index-tfcD6hOu.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/common-5dK6VpSw.js">
     <link rel="modulepreload" crossorigin href="/assets/react-CV3HRGEF.js">
     <link rel="stylesheet" crossorigin href="/assets/react-4-pFdlfx.css" media="print" onload="this.media='all'">
