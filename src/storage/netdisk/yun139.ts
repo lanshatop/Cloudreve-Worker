@@ -214,7 +214,13 @@ export class Yun139Driver implements StorageDriver {
   /** 个人云 host：路由下发，缓存 30 分钟。 */
   private async personalHost(): Promise<string> {
     const hit = routeCache.get(this.cacheKey);
-    if (hit && hit.expireAt > Date.now()) return hit.host;
+    if (hit && hit.expireAt > Date.now()) {
+      // 命中缓存也必须回填 this.host：驱动实例是每请求新建的，而缓存是
+      // isolate 级共享的。漏了这步，同一 isolate 里第二个及之后的请求
+      // this.host 为空，candidates() 会回落到错误的 yun.139.com host。
+      this.host = hit.host;
+      return hit.host;
+    }
 
     const body = JSON.stringify({
       userInfo: { userType: 1, accountType: 1, accountName: this.account },
