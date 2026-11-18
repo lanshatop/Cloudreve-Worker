@@ -23,6 +23,9 @@
  *   bucket_name               → 根目录路径（如 /cloudreve，不存在会自动建）
  *   settings.wp_root_folder_id→ 根目录 ID，默认 0（个人云根）
  *
+ * 下载：GetDownloadUrlV2 取直链后 302 直连联通 CDN（hydownload.pan.wo.cn），
+ * 不经站点中转；直链无需请求头、支持 Range、自带 Content-Disposition。
+ *
  * 注意：联通云盘自 2026-10 起对 `go-resty` 默认 UA 做了封禁，这里统一用
  * 浏览器 UA；token 需要用沃盘 App / 扫码登录后抓取（本项目不做短信登录，
  * 因为短信验证码无法在无交互的 Worker 里完成）。
@@ -120,7 +123,10 @@ export class WoPanDriver implements StorageDriver {
 
   capabilities(): DriverCapabilities {
     return {
-      proxyRequired: true,
+      // 下载走 302 直连联通 CDN（GetDownloadUrlV2 直链实测：无需任何请求头、
+      // 支持 Range、自带 Content-Disposition）；仅「强制下载且存储端文件名
+      // 带 uid_随机_ 前缀与原名不符」时按 directUrlFilename=false 回退站点中转。
+      proxyRequired: false,
       uploadSentinelRequired: true,
       maxSourceExpire: 0,
       thumbSupportedExts: [],
@@ -637,7 +643,7 @@ export class WoPanDriver implements StorageDriver {
   }
 
   async setCors(): Promise<void> {
-    // 全中转
+    // 下载为 302 直连联通 CDN，站点不需要为该存储配置 CORS
   }
 
   /** 供后台「连接测试」使用：读一次根目录（顺带验证 token）。 */
