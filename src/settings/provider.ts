@@ -15,7 +15,11 @@ import { kvFor } from '../lib/kvRouter';
 import { coloCacheDelete, coloCacheGetJson, coloCachePutJson } from '../lib/coloCache';
 
 const KV_CACHE_KEY = 'settings:all:v1';
-const KV_CACHE_TTL = 300;
+// KV 免费档写配额只有 1000 次/天：TTL 300s 意味着有流量时每天最多写 ~288 次，
+// 单这一项就能吃掉 1/3 配额。改设置时 invalidateSettings() 会主动删缓存，
+// 所以延长 TTL 不影响「改完立即生效」，只把 KV 写压到 ~48 次/天。
+// 代价：未触发失效的其它 colo 节点最坏陈旧 30 分钟（与 KV 最终一致同量级）。
+const KV_CACHE_TTL = 1800;
 /** Colo 级（Cache API）副本的物理 TTL / 逻辑新鲜期（秒）。 */
 const COLO_CACHE_KEY = 'settings:all:v1';
 const COLO_CACHE_TTL_S = 600;

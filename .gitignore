@@ -51,3 +51,4 @@ esa-publish/
 
 # 本机本地预览配置（含本机端口/占位 KV，不入库）
 wrangler.local.toml
+_local-preview/
