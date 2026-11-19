@@ -115,6 +115,27 @@ console.log(`  [diag] esbuild ${esbuild.version}`);
 }
 
 if (CHECK) mkdirSync(path.dirname(OUTFILE), { recursive: true });
+
+// 未提交改动提示：--check 比的是「已提交产物 vs 当前工作区源码」。本地常驻
+// 的 PGlite 补丁（src/db/repo.ts、src/db/audit.ts 等）本来就不入库，会让这个
+// 比对必然失败，且差异位置与真实改动无关。先说清楚，别白追一轮。
+if (CHECK) {
+  try {
+    const { execFileSync } = await import('node:child_process');
+    const dirty = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    }).trim();
+    if (dirty) {
+      const files = dirty.split('\n').map((l) => l.slice(2).trim());
+      console.log(`  [warn] 工作区有 ${files.length} 个未提交改动：${files.slice(0, 4).join(', ')}${files.length > 4 ? ' …' : ''}`);
+      console.log('         本地补丁/未提交改动会被打进产物，与已提交版本必然不一致');
+      console.log('         要重建可信产物：git stash → 构建 → git stash pop');
+    }
+  } catch {
+    /* 非 git 环境忽略 */
+  }
+}
 await esbuild.build({
   entryPoints: [path.join(ROOT, 'api', 'makers.ts')],
   bundle: true,
