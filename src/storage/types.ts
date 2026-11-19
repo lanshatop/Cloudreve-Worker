@@ -48,6 +48,20 @@ export interface UploadSession {
   /** 创建会话时目标文件是否已存在（决定收尾时是新建还是新版本） */
   newFileCreated: boolean;
   mimeType: string;
+  /**
+   * 客户端预计算的整文件 SHA-256（十六进制小写）。
+   *
+   * 移动云盘 `/file/create` 强制要求真实整文件哈希，而 Worker 免费档单请求只有
+   * 10 ms CPU —— 服务端算 95 MB 的哈希要几秒，必然 error 1102 → 503。
+   * 所以哈希改由浏览器用 WebCrypto 算好，随创建会话请求带上来。
+   */
+  contentHash?: string;
+  /** 直传型驱动在 create 阶段落地的远端文件 id（yun139 收尾要用）。 */
+  remoteFileId?: string;
+  /** 直传分片地址，按分片序号（0 起）排列；仅供直传驱动使用。 */
+  uploadUrls?: string[];
+  /** 秒传命中：远端已按哈希建好文件，客户端无需上传任何字节。 */
+  skipUpload?: boolean;
 }
 
 /** 返回给客户端的上传凭证。字段名与原版 `fs.UploadCredential` 一致。 */
@@ -66,6 +80,11 @@ export interface UploadCredential {
   completeURL?: string;
   callback_secret?: string;
   mime_type?: string;
+  /**
+   * 客户端无需上传任何字节（远端秒传命中）。
+   * 前端看到它就直接跳到收尾回调，别再尝试 PUT 分片。
+   */
+  skip_upload?: boolean;
 }
 
 export interface GetSourceArgs {

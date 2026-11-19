@@ -526,6 +526,8 @@ export interface UploadSessionRequest {
   };
   mime_type?: string;
   encryption_supported?: EncryptionCipher[];
+  /** 【本站补丁】浏览器预计算的整文件 SHA-256（移动云盘 139 直传必需）。 */
+  content_hash?: string;
 }
 
 export interface EncryptMetadata {
@@ -552,6 +554,8 @@ export interface UploadCredential {
   mime_type?: string;
   upload_policy?: string;
   encrypt_metadata?: EncryptMetadata;
+  /** 【本站补丁】远端秒传命中：无需上传任何字节，直接走收尾回调。 */
+  skip_upload?: boolean;
 }
 
 export interface DeleteUploadSessionService {

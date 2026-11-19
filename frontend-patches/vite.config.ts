@@ -126,6 +126,14 @@ export default defineConfig({
               "commonjsHelpers",
               "commonjs-dynamic-modules",
               "__vite-browser-external",
+              // @babel/runtime 的共享助手（如 esm/extends）若被 rollup 默认
+              // 归进某个手动 chunk（实测进过 excalidraw 分片），react 主分片
+              // 也依赖它 → 形成循环依赖，先执行的分片拿到未初始化的导出，
+              // 报 "Cannot read properties of undefined (reading 'jsxs')"
+              // 全站白屏（2026-11-18 线上事故）。显式归入 common，
+              // common 不依赖任何手动分片，天然无环。
+              "node_modules/@babel/runtime",
+              "node_modules/tslib",
             ],
             monaco: ["monaco-editor"],
             codemirror: ["@codemirror"],

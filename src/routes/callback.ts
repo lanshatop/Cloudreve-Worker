@@ -36,6 +36,13 @@ for (const driver of ['s3', 'oss', 'cos', 'obs', 'qiniu', 'ks3'] as const) {
   callbackRoutes.get(`/${driver}/:sessionID/:key`, handleCallback);
 }
 
+/**
+ * 移动云盘（139）直传完成回调（GET）。
+ * 浏览器把分片直传 139 的预签名地址，收尾的 `/file/complete` 需要 mcloud-sign，
+ * 只能由 Worker 代签，所以前端上传完最后一片后打这里。
+ */
+callbackRoutes.get('/yun139/:sessionID/:key', handleCallback);
+
 async function handleCallback(c: AppRequest) {
   const ctx = ctxOf(c);
   try {

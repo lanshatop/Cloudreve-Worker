@@ -30,6 +30,7 @@
  */
 import type { Env } from '../../env';
 import type { StoragePolicyRow } from '../../db/types';
+import { Err } from '../../lib/errors';
 import { safeFetch } from '../../lib/ssrf';
 import type {
   DriverCapabilities,
@@ -179,7 +180,12 @@ export class Yun139Driver implements StorageDriver {
   /** 个人云 host：路由下发，缓存 30 分钟。 */
   private async personalHost(): Promise<string> {
     const hit = routeCache.get(this.cacheKey);
-    if (hit && hit.expireAt > Date.now()) return hit.host;
+    // 命中缓存必须回填 this.host：签名与后续请求都依赖它。只 return 不回填的话，
+    // 同一 isolate 的第 2+ 个请求会拿默认 host 去签名/发请求 → 139 回 4xx/5xx。
+    if (hit && hit.expireAt > Date.now()) {
+      this.host = hit.host;
+      return hit.host;
+    }
 
     const body = JSON.stringify({
       userInfo: { userType: 1, accountType: 1, accountName: this.account },
@@ -476,11 +482,141 @@ export class Yun139Driver implements StorageDriver {
   // StorageDriver
   // -------------------------------------------------------------------------
 
-  async token(session: UploadSession, _file: UploadRequest): Promise<UploadCredential> {
+  async token(session: UploadSession, file: UploadRequest): Promise<UploadCredential> {
+    const expires = Math.floor(session.expireAt / 1000);
+    const size = file.size;
+
+    // 客户端直传（不经 Worker 的字节处理）。
+    //
+    // 为什么必须直传：139 的 `/file/create` 强制要真实整文件 SHA-256，而
+    // Cloudflare Workers 免费档单请求只有 10 ms CPU —— 纯 JS 算 95 MB 哈希
+    // 要几秒，必然 error 1102 → 503（前端还会当成可重试错误无限重跑）。
+    // 所以哈希由浏览器 WebCrypto 算好（见前端 uploader/base.ts），随创建
+    // 会话请求带上来；create 下发预签名地址后，分片由浏览器直传 139 的
+    // EOS 桶（实测该桶 CORS 放开：回显 Origin、允许 PUT）。
+    //
+    // 没有哈希时不做「悄悄回退到中转」——中转路径在免费档上必然 503，
+    // 明确报错比让前端转圈更有用。
+    if (!session.contentHash) {
+      // 业务错误码（40001）而不是裸 Error：裸 Error 会被 fail() 映射成
+      // CodeDBError(50001)，旧页面/旧前端会显示「数据库操作失败」——文案
+      // 错配还会误导用户以为站点数据库挂了。
+      throw Err.param(
+        '移动云盘上传需要浏览器预计算 SHA-256（content_hash 缺失）。' +
+          '浏览器不支持 WebCrypto 或文件超过 1 GB 时会走到这里：' +
+          'Worker 免费档的 10 ms CPU 上限算不动整文件哈希，请改用其它存储策略。',
+      );
+    }
+
+    const path = remotePathOf(this.rootPath, file.savePath);
+    const segs = segmentsOf(path);
+    const name = segs.pop()!;
+    if (!name) throw Err.param('移动云盘上传缺少文件名');
+    const parentId = await this.resolveDir(segs);
+
+    // 覆盖语义：远端已有同名文件先移入回收站，避免 create 自动改名成 "xxx(1)"
+    const existing = await this.resolveFile(path);
+    if (existing) {
+      if (!file.overwrite) throw Err.param('Object existed');
+      const id = String(existing.fileId ?? existing.catalogId ?? existing.catalogID ?? '');
+      if (id) {
+        await this.post('/recyclebin/batchTrash', {
+          fileIds: [id],
+          commonAccountInfo: { account: this.account, accountType: 1 },
+        });
+      }
+    }
+
+    const partCount = Math.max(1, Math.ceil(size / PART_SIZE));
+    if (partCount > 100) {
+      throw Err.param(`移动云盘单文件最多 100 片（当前 ${partCount} 片，上限约 10 GB）`);
+    }
+    const partInfos = Array.from({ length: partCount }, (_, i) => ({
+      partNumber: i + 1,
+      partSize: i + 1 === partCount ? size - i * PART_SIZE : PART_SIZE,
+      parallelHashCtx: { partOffset: i * PART_SIZE },
+    }));
+
+    const created = await this.post<{
+      data?: {
+        fileId?: string;
+        uploadId?: string | null;
+        exist?: boolean | null;
+        rapidUpload?: boolean | null;
+        partInfos?: { partNumber: number; uploadUrl: string }[] | null;
+      };
+      success?: boolean;
+      message?: string;
+    }>('/file/create', {
+      contentHash: session.contentHash,
+      contentHashAlgorithm: 'SHA256',
+      contentType: 'application/octet-stream',
+      parallelUpload: false,
+      partInfos,
+      size,
+      parentFileId: parentId,
+      name,
+      type: 'file',
+      fileRenameMode: 'auto_rename',
+    });
+
+    const data = created.data;
+    if (!data?.fileId) {
+      throw Err.param(
+        `移动云盘创建上传任务失败：${created.message || '未返回 fileId'}（size=${size}）`,
+      );
+    }
+    session.remoteFileId = String(data.fileId);
+
+    // 秒传：139 已按 contentHash 建好文件，uploadId / partInfos 为 null，
+    // 不是「缺参数」。告诉前端跳过上传，直接走收尾回调。
+    if (data.exist || data.rapidUpload) {
+      session.skipUpload = true;
+      return {
+        session_id: session.id,
+        chunk_size: 0,
+        expires,
+        upload_urls: [],
+        skip_upload: true,
+      };
+    }
+
+    const uploadId = data.uploadId;
+    if (!uploadId) throw Err.param('移动云盘创建上传任务失败（缺 uploadId）');
+    session.uploadId = uploadId;
+
+    const urls = new Map<number, string>();
+    for (const p of data.partInfos ?? []) urls.set(p.partNumber, p.uploadUrl);
+
+    // create 未必一次下发全部分片地址（大文件较常见），缺的按片补发
+    for (let partNumber = 1; partNumber <= partCount; partNumber++) {
+      if (urls.has(partNumber)) continue;
+      const more = await this.post<{
+        data?: { partInfos?: { partNumber: number; uploadUrl: string }[] };
+      }>('/file/getUploadUrl', {
+        fileId: data.fileId,
+        uploadId,
+        partInfos: partInfos.filter((p) => p.partNumber === partNumber),
+        commonAccountInfo: { account: this.account, accountType: 1 },
+      });
+      for (const p of more.data?.partInfos ?? []) urls.set(p.partNumber, p.uploadUrl);
+    }
+
+    const uploadUrls: string[] = [];
+    for (let partNumber = 1; partNumber <= partCount; partNumber++) {
+      const url = urls.get(partNumber);
+      if (!url) throw Err.param(`移动云盘未下发第 ${partNumber} 片的上传地址`);
+      uploadUrls.push(url);
+    }
+    session.uploadUrls = uploadUrls;
+    session.parts = [];
+
     return {
       session_id: session.id,
-      chunk_size: 0,
-      expires: Math.floor(session.expireAt / 1000),
+      chunk_size: PART_SIZE,
+      expires,
+      uploadID: uploadId,
+      upload_urls: uploadUrls,
     };
   }
 
@@ -504,12 +640,31 @@ export class Yun139Driver implements StorageDriver {
     return null;
   }
 
-  async completeUpload(_session: UploadSession): Promise<void> {
-    // 单请求内完成
+  async completeUpload(session: UploadSession): Promise<void> {
+    // 秒传：create 阶段 139 就已按 contentHash 落好文件，不需要再 complete
+    if (session.skipUpload) return;
+    if (!session.remoteFileId || !session.uploadId) {
+      throw Err.param('移动云盘上传收尾缺少 fileId / uploadId（直传会话未初始化）');
+    }
+    await this.post('/file/complete', {
+      contentHash: session.contentHash,
+      contentHashAlgorithm: 'SHA256',
+      fileId: session.remoteFileId,
+      uploadId: session.uploadId,
+    });
   }
 
   async cancelToken(session: UploadSession): Promise<void> {
     try {
+      // 直传在 create 阶段就在远端建了文件占位：按 fileId 精确删掉，
+      // 否则取消后用户云盘里会留下 0 字节的空文件。
+      if (session.remoteFileId) {
+        await this.post('/recyclebin/batchTrash', {
+          fileIds: [session.remoteFileId],
+          commonAccountInfo: { account: this.account, accountType: 1 },
+        });
+        return;
+      }
       await this.remove([session.savePath]);
     } catch {
       // 可能尚未落地

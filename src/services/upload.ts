@@ -67,6 +67,12 @@ export interface CreateUploadSessionParams {  uri: string;
   entityType?: string;
   /** 前端声明的可用加密算法（对应上游 UploadSessionRequest.encryption_supported）。 */
   encryptionSupported?: string[];
+  /**
+   * 客户端预计算的整文件 SHA-256（十六进制）。
+   * 移动云盘 139 直传必需：`/file/create` 要求真实整文件哈希，而 Worker
+   * 免费档算不动大文件（10 ms CPU），只能由浏览器算好带上来。
+   */
+  contentHash?: string;
 }
 
 export interface UploadSessionResponse {
@@ -86,6 +92,8 @@ export interface UploadSessionResponse {
   callback?: string;
   mime_type?: string;
   upload_policy?: string;
+  /** 秒传命中：客户端无需上传字节，直接调收尾回调即可。 */
+  skip_upload?: boolean;
   /** 客户端加密：前端据此用 EncryptedBlob 流式加密后再上传（对齐上游 EncryptMetadata）。 */
   encrypt_metadata?: EncryptMetadata;
 }
@@ -264,6 +272,7 @@ export class UploadService {
       expireAt,
       newFileCreated,
       mimeType: params.mimeType ?? '',
+      contentHash: params.contentHash,
     };
 
     const driver = this.ctx.driverFor(policy);
@@ -298,6 +307,8 @@ export class UploadService {
     };
     if (credential.uploadID) response.upload_id = credential.uploadID;
     if (credential.upload_urls) response.upload_urls = credential.upload_urls;
+    // 秒传：远端已按 contentHash 建好文件，前端不必传任何字节
+    if (credential.skip_upload) response.skip_upload = true;
     if (credential.completeURL) response.completeURL = credential.completeURL;
     if (credential.ak) response.ak = credential.ak;
     if (credential.keyTime) response.keyTime = credential.keyTime;
@@ -430,7 +441,11 @@ export class UploadService {
     // S3 系直传（s3/oss/cos/obs/qiniu/ks3）与 OneDrive 一样需要客户端回调转正：
     // 字节不经过 Worker，CompleteMultipartUpload 由前端用预签名 completeURL 完成。
     const S3_FAMILY: string[] = [PolicyType.S3, PolicyType.Oss, PolicyType.Cos, PolicyType.Obs, PolicyType.Qiniu, PolicyType.Ks3];
-    if (session.policy.type !== PolicyType.OneDrive && !S3_FAMILY.includes(session.policy.type)) {
+    // 移动云盘直传同理：字节由浏览器直传 139 的预签名地址，Worker 只负责
+    // create / complete。complete 需要 mcloud-sign，不能下发到前端，所以
+    // 收尾仍走这条回调。
+    const DIRECT_FAMILY = [...S3_FAMILY, PolicyType.Yun139];
+    if (session.policy.type !== PolicyType.OneDrive && !DIRECT_FAMILY.includes(session.policy.type)) {
       throw new AppError(CodePolicyNotAllowed, 'Policy type mismatch');
     }
 
