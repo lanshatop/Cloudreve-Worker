@@ -86,6 +86,7 @@ const OUTFILE = CHECK
   : ARTIFACT;
 
 console.log(CHECK ? '▶ [3/3] 校验云函数产物是否最新…' : '▶ [3/3] 打包 Node 云函数…');
+console.log(`  [diag] esbuild ${esbuild.version}`);
 if (CHECK) mkdirSync(path.dirname(OUTFILE), { recursive: true });
 await esbuild.build({
   entryPoints: [path.join(ROOT, 'api', 'makers.ts')],
@@ -93,7 +94,13 @@ await esbuild.build({
   platform: 'node',
   target: 'node22',
   format: 'esm',
-  minify: true,
+  // 注意：不用 minify: true。--check 是逐字节比对，实测 esbuild 的
+  // minifyIdentifiers（混淆命名分配）在 Windows 本地与 Linux CI 之间
+  // 对同一输入会产生不同的命名（频率排序的实现差异），导致产物永远
+  // 对不上。空白与语法压缩是确定性的，标识符保留原名即可——JS 语义
+  // 不变，体积增加约 8%，运行时无影响。
+  minifyWhitespace: true,
+  minifySyntax: true,
   outfile: OUTFILE,
   // SPA 壳内联：dist/index.html 以文本形式打进 bundle（构建顺序保证
   // 这一步跑在「组装 dist/」之后）。
