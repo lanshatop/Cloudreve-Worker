@@ -87,6 +87,33 @@ const OUTFILE = CHECK
 
 console.log(CHECK ? '▶ [3/3] 校验云函数产物是否最新…' : '▶ [3/3] 打包 Node 云函数…');
 console.log(`  [diag] esbuild ${esbuild.version}`);
+
+// 依赖漂移自检：bundle 把 node_modules 里的依赖代码一起打包，所以
+// node_modules 与 package-lock.json 只要有一个包版本不同（npm install 会
+// 顺手升级，npm ci 不会），产物就会整段位移，--check 报出的差异位置与真正
+// 改动毫无关系。这里先把漂移指出来，省得又去怀疑 esbuild/换行/路径。
+{
+  const { readFileSync, existsSync: exists } = await import('node:fs');
+  const lockPath = path.join(ROOT, 'package-lock.json');
+  if (exists(lockPath)) {
+    const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+    const drift = [];
+    for (const [key, meta] of Object.entries(lock.packages || {})) {
+      const m = /^node_modules\/((?:@[^/]+\/)?[^/]+)$/.exec(key);
+      if (!m || !meta.version) continue;
+      const pj = path.join(ROOT, key, 'package.json');
+      if (!exists(pj)) continue;
+      const installed = JSON.parse(readFileSync(pj, 'utf8')).version;
+      if (installed !== meta.version) drift.push(`${m[1]} ${installed} ≠ lock ${meta.version}`);
+    }
+    if (drift.length) {
+      console.log(`  [warn] node_modules 与 lockfile 不一致（${drift.length} 个包）：`);
+      for (const d of drift.slice(0, 5)) console.log(`         ${d}`);
+      console.log('         产物必然与 CI 对不上，先跑 npm ci');
+    }
+  }
+}
+
 if (CHECK) mkdirSync(path.dirname(OUTFILE), { recursive: true });
 await esbuild.build({
   entryPoints: [path.join(ROOT, 'api', 'makers.ts')],
@@ -94,11 +121,11 @@ await esbuild.build({
   platform: 'node',
   target: 'node22',
   format: 'esm',
-  // 注意：不用 minify: true。--check 是逐字节比对，实测 esbuild 的
-  // minifyIdentifiers（混淆命名分配）在 Windows 本地与 Linux CI 之间
-  // 对同一输入会产生不同的命名（频率排序的实现差异），导致产物永远
-  // 对不上。空白与语法压缩是确定性的，标识符保留原名即可——JS 语义
-  // 不变，体积增加约 8%，运行时无影响。
+  // 注意：不用 minify: true。--check 是逐字节比对，而产物是「源码 + 依赖
+  // 代码」的拼接，字节位置对输入极其敏感：依赖版本漂移或标识符混淆的命名
+  // 重排，都会让整包偏移上千字节，报出的差异位置离真正改动十万八千里。
+  // 空白/语法压缩是确定性的，标识符保留原名，体积大一些，但 diff 可读、
+  // 排查成本低得多。
   minifyWhitespace: true,
   minifySyntax: true,
   outfile: OUTFILE,
