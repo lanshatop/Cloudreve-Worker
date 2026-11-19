@@ -118,15 +118,42 @@ await esbuild.build({
 }
 
 if (CHECK) {
-  const { readFileSync, rmSync } = await import('node:fs');
+  const { readFileSync, writeFileSync, rmSync } = await import('node:fs');
+  const { createHash } = await import('node:crypto');
   const expected = readFileSync(OUTFILE);
+  // 诊断：不一致时保留 CI 侧重算的 bundle 并打印两侧哈希/长度，供本地
+  // 逐字节 diff（配合 ci.yml 的 upload-artifact 步骤取回文件）。
+  const dump = path.join(ROOT, 'node_modules', '.cache', 'edgeone-artifact-mismatch.js');
+  rmSync(dump, { force: true });
+  writeFileSync(dump, expected);
+  console.log(
+    `  [diag] rebuilt: sha256=${createHash('sha256').update(expected).digest('hex')} size=${expected.length}`,
+  );
   rmSync(OUTFILE, { force: true });
   if (!existsSync(ARTIFACT)) {
     console.error('✘ cloud-functions/[[default]].js 未提交');
     process.exit(1);
   }
   const actual = readFileSync(ARTIFACT);
+  console.log(
+    `  [diag] committed: sha256=${createHash('sha256').update(actual).digest('hex')} size=${actual.length}`,
+  );
   if (!expected.equals(actual)) {
+    // 找出首个差异字节，帮助快速定位差异来源（换行？资源名？代码段？）
+    let diffAt = -1;
+    const n = Math.min(expected.length, actual.length);
+    for (let i = 0; i < n; i++) {
+      if (expected[i] !== actual[i]) { diffAt = i; break; }
+    }
+    console.log(
+      `  [diag] first-diff byte: ${diffAt}` +
+        (diffAt >= 0
+          ? ` | rebuilt: ${expected.slice(diffAt, diffAt + 80).toString('utf8').replace(/\n/g, '\\n')}`
+          : '') +
+        (diffAt >= 0
+          ? ` | committed: ${actual.slice(diffAt, diffAt + 80).toString('utf8').replace(/\n/g, '\\n')}`
+          : ''),
+    );
     console.error(
       '✘ 云函数产物已过期：改了 api/ 或 src/ 之后要跑\n' +
         '    node scripts/build-edgeone.mjs\n' +

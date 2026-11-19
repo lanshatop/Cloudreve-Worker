@@ -156,6 +156,15 @@ jobs:
       - name: EdgeOne 云函数产物一致性
         run: node scripts/build-edgeone.mjs --check
 
+      # 诊断：产物校验失败时，把 CI 侧重算的 bundle 传出来与本地逐字节 diff。
+      - name: 上传不一致诊断产物
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edgeone-artifact-mismatch
+          path: node_modules/.cache/edgeone-artifact-mismatch.js
+          if-no-files-found: ignore
+
       # 前端 COMMIT 变了但还没有对应预构建包时，这一次是源码现构建。
       # 顺手把产物发到 Release（tag frontend-assets），下次 CI 与 Cloudflare
       # 的构建都能秒级命中；否则每 bump 一次前端都要再等一遍 yarn + vite。
